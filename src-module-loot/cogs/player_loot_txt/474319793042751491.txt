@@ -1,0 +1,222 @@
+==============================
+Loot items of Fesa. Creation date: 14/04/22
+Total loot items: 210
+NAME, RARITY, CUBELET
+==============================
+New loot type: gadget
+==============================
+Rainbow Cat, mythical, normal
+Astronaut, legendary, normal
+Flesh Bomb, legendary, halloween
+Kite, legendary, summer
+Rocket Bunny, legendary, spring
+"Thor's Hammer", legendary, normal
+Water Pistol, legendary, summer
+Easter Egg, rare, spring
+Egg Cannon, rare, spring
+Ender Bow, rare, normal
+Hot Tub, rare, summer
+Jack o’Lantern Launcher, rare, halloween
+Magic Wand, rare, winter
+Present Launcher, rare, winter
+Sand Castle, rare, summer
+Snowman, rare, winter
+Tsunami Wave, rare, summer
+Witch Cauldron, rare, halloween
+Bonemerang, uncommon, halloween
+Dragon Breath, uncommon, unobtainable
+Laser Gun, uncommon, normal
+Paintball, uncommon, normal
+Squid Launcher, uncommon, normal
+When Pigs Fly, uncommon, unobtainable
+Bat, common, normal
+Blocks Gun, common, pack_bundle
+Football, common, summer
+Frisbee, common, summer
+Iron Rain, common, normal
+Pumpkin Jack in the Box, common, halloween
+Bat Blaster, no_rarity, unobtainable
+Cowboy, no_rarity, pack_bundle
+Firework Bow, no_rarity, pack_bundle
+Grappling Bow, no_rarity, pack_bundle
+Lightning, no_rarity, pack_bundle
+Melon Slice, no_rarity, unobtainable
+Mining, no_rarity, unobtainable
+Pilot Compass, no_rarity, pack_bundle
+Sheep Farm, no_rarity, pack_bundle
+Snowman fight, no_rarity, unobtainable
+Sun Bed, no_rarity, pack_bundle
+Villager Launcher, no_rarity, pack_bundle
+Total gadget loot: 42
+==============================
+New loot type: cage
+==============================
+Easter Basket, rare, spring
+Green Wool, rare, normal
+Purple Wool, rare, normal
+Raging Fire (Animated), rare, halloween
+Rainbow White Flower, rare, spring
+Red Wool, rare, normal
+Santa Hat, rare, winter
+Skeleton, rare, halloween
+Stocking, rare, winter
+Watermelon, rare, summer
+White Wool, rare, normal
+Witch Hat, rare, halloween
+Zebra Egg, rare, spring
+Beach Ball, uncommon, summer
+Blue Bauble, uncommon, winter
+Blue Clay, uncommon, normal
+Blue and White Present, uncommon, winter
+Brown Clay, uncommon, normal
+Carrot, uncommon, spring
+Chocolate Egg, uncommon, spring
+Coal, uncommon, normal
+Green Clay, uncommon, normal
+Light Grey Clay, uncommon, normal
+Reset cage, no_rarity, unobtainable
+Animated Present, mythical, winter
+Bauble (Animated), mythical, winter
+Bee, mythical, normal
+Cloud, mythical, normal
+DJ, mythical, normal
+Fire, mythical, normal
+Luck, mythical, normal
+Magic, mythical, normal
+Mushroom, mythical, normal
+Pirate, mythical, normal
+Portal, mythical, normal
+Rainbow, mythical, normal
+Sundae (Animated), mythical, summer
+Zeus, mythical, normal
+Angelic, legendary, normal
+Balloon, legendary, normal
+Candy Cane, legendary, winter
+Pyramid, legendary, normal
+Rainbow Flower, legendary, spring
+Sun (Animated), legendary, summer
+Treehouse, legendary, normal
+Wave (Animated), legendary, summer
+Beach Umbrella (Animated), rare, summer
+Candy Corn (Animated), rare, halloween
+Cauldron, rare, halloween
+Christmas Tree, rare, winter
+Cyan Wool, rare, normal
+Orange Glass, common, normal
+Pink Glass, common, normal
+Purple and Pink Present, common, winter
+Red Bauble, common, winter
+Red Glass, common, unobtainable
+Rubber Ring, common, summer
+Slime Glass, common, normal
+Smoke Glass, common, normal
+Snake Glass, common, normal
+White Chocolate Egg, common, spring
+White Glass, common, normal
+White and Black Present, common, winter
+White and Red Present, common, winter
+Yellow Bauble, common, winter
+Yellow and Green Present, common, winter
+Abduction, no_rarity, unobtainable
+Angel Wings, no_rarity, unobtainable
+Apple Ice Lolly, no_rarity, pack_bundle
+Bedrock, no_rarity, pack_bundle
+Bee Glass, no_rarity, pack_bundle
+Blackberry Ice Cream, no_rarity, pack_bundle
+Blue Glass, no_rarity, pack_bundle
+"Box (Plus 1 Year, no_rarity, unobtainable
+Cactus (Plus 6 months), no_rarity, pack_bundle
+Chick, no_rarity, pack_bundle
+Cobweb, no_rarity, pack_bundle
+Cracking Egg, no_rarity, pack_bundle
+Cupcake, no_rarity, pack_bundle
+Dead Tree, no_rarity, pack_bundle
+Diamond, no_rarity, pack_bundle
+Disco Glass, no_rarity, pack_bundle
+Earth (Animated), no_rarity, pack_bundle
+Earth (Plus 9 months), no_rarity, pack_bundle
+Emerald, no_rarity, pack_bundle
+Field, no_rarity, pack_bundle
+Fireplace, no_rarity, pack_bundle
+Floating Cloud (1 Year 9 Months), no_rarity, pack_bundle
+Gingerbread Man, no_rarity, pack_bundle
+Glass, no_rarity, unobtainable
+Gold, no_rarity, pack_bundle
+Gravestone, no_rarity, pack_bundle
+Grey Glass, no_rarity, pack_bundle
+Growing Tree (Animated), no_rarity, unobtainable
+Heart Balloon, no_rarity, pack_bundle
+Hotdog, no_rarity, unobtainable
+House (Plus 9 months), no_rarity, pack_bundle
+Ice Breaker (Animated), no_rarity, pack_bundle
+Ice Crack, no_rarity, pack_bundle
+Ice Lolly (Animated), no_rarity, pack_bundle
+Iron, no_rarity, pack_bundle
+Lapiz, no_rarity, pack_bundle
+Lemon Ice Lolly, no_rarity, pack_bundle
+Light Blue Glass, no_rarity, pack_bundle
+Lime Glass, no_rarity, pack_bundle
+Mars, no_rarity, pack_bundle
+Melting Candle (Animated), no_rarity, pack_bundle
+Moon, no_rarity, pack_bundle
+Mushroom Tree (1 Year 6 Months), no_rarity, pack_bundle
+Obsidian, no_rarity, pack_bundle
+Orange Ice Cream, no_rarity, pack_bundle
+Orange Ice Lolly, no_rarity, pack_bundle
+Orange Juice, no_rarity, pack_bundle
+Plus (3 months), no_rarity, pack_bundle
+Potion Master, no_rarity, unobtainable
+Pumpkin (Animated), no_rarity, pack_bundle
+Purple Glass, no_rarity, pack_bundle
+Rainbow Glass, no_rarity, pack_bundle
+Rainbow Ice Cream, no_rarity, pack_bundle
+Rainbow Ice Lolly, no_rarity, pack_bundle
+Rocket, no_rarity, pack_bundle
+Snow Globe, no_rarity, pack_bundle
+Snowman, no_rarity, pack_bundle
+Spinning Gravestone (Animated), no_rarity, pack_bundle
+Spiral (2 Years), no_rarity, pack_bundle
+Spiral Glass, no_rarity, pack_bundle
+Spring Field, no_rarity, pack_bundle
+Strawberry Ice Cream, no_rarity, pack_bundle
+Strawberry Ice Lolly, no_rarity, pack_bundle
+Sun Flower, no_rarity, pack_bundle
+Toilet, no_rarity, unobtainable
+Trampoline (Plus 6 months), no_rarity, pack_bundle
+Treasure (Plus 1 Year), no_rarity, pack_bundle
+Treasure Marker (Animated), no_rarity, unobtainable
+Tree, no_rarity, pack_bundle
+Valentines Cake, no_rarity, pack_bundle
+Vanilla Ice Cream, no_rarity, pack_bundle
+Villager House, no_rarity, unobtainable
+Watch Tower, no_rarity, unobtainable
+Wither, no_rarity, unobtainable
+Yellow Glass, no_rarity, pack_bundle
+Magenta Clay, uncommon, normal
+Orange Clay, uncommon, normal
+Orange and Blue Present, uncommon, winter
+Pineapple, uncommon, summer
+Pink Clay, uncommon, normal
+Prison, uncommon, normal
+Purple Clay, uncommon, normal
+Red Clay, uncommon, normal
+Red and Green Present, uncommon, winter
+Red and Yellow Present, uncommon, winter
+Sandcastle, uncommon, summer
+White Clay, uncommon, normal
+Yellow Clay, uncommon, normal
+Banana Ice Cream, common, summer
+Black and White Present, common, winter
+Blueberry Ice Cream, common, summer
+Brown Glass, common, normal
+Cyan Glass, common, normal
+Dark Grey Glass, common, normal
+Duck, common, spring
+Egg, common, spring
+Grape Glass, common, normal
+Green & White Present, common, winter
+Green Bauble, common, winter
+Green Glass, common, normal
+Icy Glass, common, normal
+Ocean Glass, common, normal
+Total gadget loot: 168

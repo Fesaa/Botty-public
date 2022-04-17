@@ -1,0 +1,187 @@
+==============================
+Missing loot items of Fes. Creation date: 17/04/22
+Total loot items: 172
+NAME, RARITY, CUBELET
+==============================
+New loot type: shield
+==============================
+Red Rhombus, uncommon, normal
+Ghast, rare, normal
+Red Spot, uncommon, normal
+Purple Potion, rare, normal
+Fading Pink and Purple, uncommon, normal
+Creeper, rare, normal
+Fading Black and White, uncommon, normal
+Green, common, normal
+Pirate, rare, normal
+Star, rare, normal
+Red Cross, uncommon, normal
+Sunrise, legendary, normal
+Smiley, legendary, normal
+Moon, mythical, normal
+Rainy Day, legendary, normal
+Evil, legendary, normal
+Green Present, common, winter
+Red, common, normal
+Monster, uncommon, halloween
+White, common, normal
+Silver, common, normal
+Snow, common, winter
+Zebra, uncommon, normal
+Witch Potion, uncommon, halloween
+Cyan, common, normal
+White and Black Diagonal, uncommon, normal
+Pineapple Creeper, rare, summer
+Yellow Cross, uncommon, normal
+Yellow Spot, uncommon, normal
+Green and Blue Diagonal, uncommon, normal
+Icy Mountain, mythical, normal
+Sunny Day, uncommon, summer
+Lime, common, normal
+Chocolate Bar, rare, normal
+Rainbow, mythical, normal
+Orange, common, normal
+Volcano, legendary, normal
+Purple and Orange Diagonal, uncommon, normal
+Pink Flower, uncommon, spring
+Green Rhombus, uncommon, normal
+Mirror, rare, normal
+Fading Blue and Orange, uncommon, normal
+Red Potion, rare, normal
+Egg Timer, uncommon, normal
+Light Blue, common, normal
+Aqua Cross, uncommon, normal
+Candy, common, halloween
+Green Potion, rare, normal
+Total shield loot: 48
+==============================
+New loot type: gadget
+==============================
+Pumpkin Jack in the Box, common, halloween
+Iron Rain, common, normal
+Frisbee, common, summer
+Football, common, summer
+Bat, common, normal
+Squid Launcher, uncommon, normal
+Paintball, uncommon, normal
+Laser Gun, uncommon, normal
+Bonemerang, uncommon, halloween
+Witch Cauldron, rare, halloween
+Tsunami Wave, rare, summer
+Snowman, rare, winter
+Sand Castle, rare, summer
+Present Launcher, rare, winter
+Magic Wand, rare, winter
+Jack o’Lantern Launcher, rare, halloween
+Hot Tub, rare, summer
+Ender Bow, rare, normal
+Egg Cannon, rare, spring
+Easter Egg, rare, spring
+Water Pistol, legendary, summer
+"Thor's Hammer", legendary, normal
+Rocket Bunny, legendary, spring
+Kite, legendary, summer
+Flesh Bomb, legendary, halloween
+Astronaut, legendary, normal
+Rainbow Cat, mythical, normal
+Total gadget loot: 27
+==============================
+New loot type: cage
+==============================
+Christmas Tree, rare, winter
+Cyan Wool, rare, normal
+Orange Glass, common, normal
+Pink Glass, common, normal
+Purple and Pink Present, common, winter
+Red Bauble, common, winter
+Rubber Ring, common, summer
+Slime Glass, common, normal
+Smoke Glass, common, normal
+Snake Glass, common, normal
+White Chocolate Egg, common, spring
+White Glass, common, normal
+White and Black Present, common, winter
+White and Red Present, common, winter
+Yellow Bauble, common, winter
+Yellow and Green Present, common, winter
+Magenta Clay, uncommon, normal
+Orange Clay, uncommon, normal
+Orange and Blue Present, uncommon, winter
+Pineapple, uncommon, summer
+Pink Clay, uncommon, normal
+Prison, uncommon, normal
+Purple Clay, uncommon, normal
+Red Clay, uncommon, normal
+Red and Green Present, uncommon, winter
+Red and Yellow Present, uncommon, winter
+Sandcastle, uncommon, summer
+White Clay, uncommon, normal
+Yellow Clay, uncommon, normal
+Banana Ice Cream, common, summer
+Black and White Present, common, winter
+Blueberry Ice Cream, common, summer
+Brown Glass, common, normal
+Cyan Glass, common, normal
+Dark Grey Glass, common, normal
+Duck, common, spring
+Egg, common, spring
+Grape Glass, common, normal
+Green & White Present, common, winter
+Green Bauble, common, winter
+Green Glass, common, normal
+Icy Glass, common, normal
+Ocean Glass, common, normal
+Cauldron, rare, halloween
+Candy Corn (Animated), rare, halloween
+Beach Umbrella (Animated), rare, summer
+Wave (Animated), legendary, summer
+Treehouse, legendary, normal
+Sun (Animated), legendary, summer
+Rainbow Flower, legendary, spring
+Pyramid, legendary, normal
+Candy Cane, legendary, winter
+Balloon, legendary, normal
+Angelic, legendary, normal
+Zeus, mythical, normal
+Sundae (Animated), mythical, summer
+Rainbow, mythical, normal
+Portal, mythical, normal
+Pirate, mythical, normal
+Mushroom, mythical, normal
+Magic, mythical, normal
+Luck, mythical, normal
+Fire, mythical, normal
+DJ, mythical, normal
+Cloud, mythical, normal
+Bee, mythical, normal
+Bauble (Animated), mythical, winter
+Animated Present, mythical, winter
+Light Grey Clay, uncommon, normal
+Green Clay, uncommon, normal
+Coal, uncommon, normal
+Chocolate Egg, uncommon, spring
+Carrot, uncommon, spring
+Brown Clay, uncommon, normal
+Blue and White Present, uncommon, winter
+Blue Clay, uncommon, normal
+Blue Bauble, uncommon, winter
+Beach Ball, uncommon, summer
+Zebra Egg, rare, spring
+Witch Hat, rare, halloween
+White Wool, rare, normal
+Watermelon, rare, summer
+Stocking, rare, winter
+Skeleton, rare, halloween
+Santa Hat, rare, winter
+Red Wool, rare, normal
+Rainbow White Flower, rare, spring
+Raging Fire (Animated), rare, halloween
+Purple Wool, rare, normal
+Pumpkin, rare, halloween
+Palm Tree, rare, summer
+Orange Wool, rare, normal
+Grey Wool, rare, normal
+Green Wool, rare, normal
+Easter Basket, rare, spring
+R, mythical, normal
+testCage, mythical, normal

@@ -1,0 +1,13 @@
+{
+    "General": {
+        "Discord Token": "Bot-Token",
+        "Bot-id": "Bot-id: int",
+        "Command Prefix": "Command_prefix"
+    },
+    "mysql": {
+        "host": "...",
+        "database": "...",
+        "user": "...",
+        "password": "..."
+    }
+}

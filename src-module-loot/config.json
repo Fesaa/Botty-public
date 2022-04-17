@@ -1,0 +1,15 @@
+{
+  "Token": "Bot-Token",
+  "Bot-id": "Bot-id: int",
+  "mysql": {
+        "host": "...",
+        "database": "...",
+        "user": "...",
+        "password": "..."
+    },
+  "Guild ids": [
+    "id of guild, contrast to the name, will only work in one guild"
+  ],
+  "Queue channel id": "int",
+  "Sub channel id": "int"
+}
