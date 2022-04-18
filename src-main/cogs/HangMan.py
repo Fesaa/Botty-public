@@ -235,7 +235,7 @@ class WordGuess(Modal):
 class DropDownView(View):
 
     def __init__(self, used_letters: str, bot: commands.Bot):
-        super().__init__()
+        super().__init__(timeout=None)
         self.bot = bot
 
         letters = splitletters(used_letters)

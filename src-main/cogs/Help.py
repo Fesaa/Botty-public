@@ -156,7 +156,7 @@ class HelpHomeButton(Button):
 
 class HelpView(View):
 
-    def __init__(self, bot: commands.bot, guild: Guild, user: Member, selected_game: str = 'Home', selected_help: str = 'Home', timeout: int = 180):
+    def __init__(self, bot: commands.bot, guild: Guild, user: Member, selected_game: str = 'Home', selected_help: str = 'Home', timeout: int = None):
 
         super().__init__(timeout=timeout)
 

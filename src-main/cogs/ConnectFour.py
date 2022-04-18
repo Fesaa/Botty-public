@@ -167,7 +167,7 @@ async def register_move(bot: commands.bot, interaction: Interaction, row: int, v
 
 class ConnectFourGameView(View):
 
-    def __init__(self, bot: commands.bot, timeout=180):
+    def __init__(self, bot: commands.bot, timeout=120):
         self.bot = bot
         super().__init__(timeout=timeout)
     
@@ -210,7 +210,7 @@ class ConnectFourGameView(View):
 
 class ConnectFourPreGameView(View):
 
-    def __init__(self, bot: commands.bot, timeout=180):
+    def __init__(self, bot: commands.bot, timeout=120):
         self.bot = bot
         super().__init__(timeout=timeout)
     

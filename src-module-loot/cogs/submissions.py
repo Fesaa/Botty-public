@@ -64,7 +64,7 @@ class EditRaritySelect(Select):
 
 class EditRarity(View):
 
-    def __init__(self, bot: commands.Bot, selected_rarity: str, timeout: Optional[float] = 180):
+    def __init__(self, bot: commands.Bot, selected_rarity: str, timeout: Optional[float] = None):
         super().__init__(timeout=timeout)
         self.bot = bot
         self.add_item(EditRaritySelect(selected_rarity, self.bot))
@@ -102,7 +102,7 @@ class EditCubeletSelect(Select):
 
 class EditCubelet(View):
 
-    def __init__(self, bot: commands.Bot, selected_cubelet: str, timeout: Optional[float] = 180):
+    def __init__(self, bot: commands.Bot, selected_cubelet: str, timeout: Optional[float] = None):
         super().__init__(timeout=timeout)
         self.bot = bot
 
@@ -128,7 +128,7 @@ class EditName(Modal):
 
 class SubmissionButtons(View):
 
-    def __init__(self, bot: commands.Bot, timeout: Optional[float] = 180):
+    def __init__(self, bot: commands.Bot, timeout: Optional[float] = None):
         super().__init__(timeout=timeout)
         self.bot = bot
 
