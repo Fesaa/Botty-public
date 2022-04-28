@@ -45,12 +45,14 @@ async def sync_slash(ctx: commands.Context):
 async def app_command_error(interaction: Interaction, error: app_commands.AppCommandError):
     if isinstance(error, app_errors.MissingPermissions):
         await interaction.response.send_message('You are missing the nessairy perms to use this command.', ephemeral=True)
+    elif isinstance(error, app_errors.CommandNotFound):
+        pass
     else:
         raise error
 
 @commands.Cog.listener()
 async def on_command_error(self, ctx, exc):
-    if isinstance(exc, commands.errors.CommandNotFound):
+    if isinstance(exc, commands.errors.CommandNotFound) or isinstance(exc, commands.errors.MissingRequiredArgument):
         pass
     else:
         raise exc
