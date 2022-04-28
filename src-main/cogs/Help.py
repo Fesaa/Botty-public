@@ -163,23 +163,22 @@ class HelpView(View):
         games = [i for i in POSSIBLE_GAMES if bot.db.get_channel(guild.id, i) != []]
         games.append('Home')
 
-        if selected_help == 'Config':
+        if games != ['Home']:
             self.add_item(HelpGameSelect(bot=bot, games=games, guild=guild, user=user, selected_game=selected_game, selected_help=selected_help))
+
+        if selected_help == 'Config':
             self.add_item(HelpHomeButton(bot=bot, guild=guild, user=user, selected_game=selected_game, selected_help=selected_help))
             self.add_item(HelpPollyButton(bot=bot, guild=guild, user=user, selected_game=selected_game, selected_help=selected_help))
             self.add_item(HelpCubeLvlButton(bot=bot, guild=guild, user=user, selected_game=selected_game, selected_help=selected_help))
         elif selected_help == 'Polly':
-            self.add_item(HelpGameSelect(bot=bot, games=games, guild=guild, user=user, selected_game=selected_game, selected_help=selected_help))
             self.add_item(HelpConfigButton(bot=bot, guild=guild, user=user, selected_game=selected_game, selected_help=selected_help))
             self.add_item(HelpHomeButton(bot=bot, guild=guild, user=user, selected_game=selected_game, selected_help=selected_help))
             self.add_item(HelpCubeLvlButton(bot=bot, guild=guild, user=user, selected_game=selected_game, selected_help=selected_help))
         elif selected_help == 'CubeLvl':
-            self.add_item(HelpGameSelect(bot=bot, games=games, guild=guild, user=user, selected_game=selected_game, selected_help=selected_help))
             self.add_item(HelpConfigButton(bot=bot, guild=guild, user=user, selected_game=selected_game, selected_help=selected_help))
             self.add_item(HelpPollyButton(bot=bot, guild=guild, user=user, selected_game=selected_game, selected_help=selected_help))
             self.add_item(HelpHomeButton(bot=bot, guild=guild, user=user, selected_game=selected_game, selected_help=selected_help))
         elif selected_help == 'Home':
-            self.add_item(HelpGameSelect(bot=bot, games=games, guild=guild, user=user, selected_game=selected_game, selected_help=selected_help))
             self.add_item(HelpConfigButton(bot=bot, guild=guild, user=user, selected_game=selected_game, selected_help=selected_help))
             self.add_item(HelpPollyButton(bot=bot, guild=guild, user=user, selected_game=selected_game, selected_help=selected_help))
             self.add_item(HelpCubeLvlButton(bot=bot, guild=guild, user=user, selected_game=selected_game, selected_help=selected_help))
