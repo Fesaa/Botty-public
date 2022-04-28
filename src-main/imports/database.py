@@ -23,6 +23,9 @@ class DataBase:
         self.cursor.execute(insert_query, (guild_id,))
         self.db_connection.commit()
     
+    def reconnect(self):
+        self.db_connection.reconnect()
+    
     # ============================================
     # Prefix
 

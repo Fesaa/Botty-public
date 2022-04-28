@@ -50,6 +50,10 @@ class ConfigHandler(commands.Cog):
     async def on_guild_join(self, guild: Guild):
         self.bot.db.innit_guild(guild.id, DEFAULT_PREFIX, DEFAULT_LB_SIZE, DEFAULT_MAX_REPLY, DEFAULT_WS_GUESSES)
 
+    @commands.command(name='reconnect')
+    async def _reconnect(self, ctx: commands.Context):
+        self.bot.db.reconnect()
+
 
     class ConfigCommands(app_commands.Group, name='config', description='Config commands. User needs administrative perms to use these commands.'):
 
