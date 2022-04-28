@@ -53,6 +53,7 @@ class ConfigHandler(commands.Cog):
     @commands.command(name='reconnect')
     async def _reconnect(self, ctx: commands.Context):
         self.bot.db.reconnect()
+        ctx.reply("Reconnected successfully")
 
 
     class ConfigCommands(app_commands.Group, name='config', description='Config commands. User needs administrative perms to use these commands.'):
