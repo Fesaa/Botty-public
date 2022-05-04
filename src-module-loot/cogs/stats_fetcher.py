@@ -264,21 +264,6 @@ class StatsFetcher(commands.Cog):
                            ign='In game name of the player, defaults to yourself')
     async def _report(self, interaction: Interaction, order: str, global_loot: bool = False, ign: str = None):
 
-        count_fixer = {
-            'Hats': 1,
-            'Cages': 1,
-            'Trails': 1,
-            'Banners': 1,
-            'Gadgets': 0,
-            'Shields': 1,
-            'Balloons': 1,
-            'Wardrobe': 0,
-            'Miniatures': 1,
-            'Win Effects': 1,
-            'Arrow Trails': 1,
-            'Egg Break Messages': 1
-        }
-
         if ign is None:
             uuid = self.bot.db.get_uuid(interaction.user.id)
         else:
@@ -299,7 +284,7 @@ class StatsFetcher(commands.Cog):
                 c += count
                 desc += f"{order_type}: **{count}**\n"
 
-            desc = f"**Total: {c + count_fixer[LOOT_TYPE_SWITCHER[loot_type]]}**\n" + desc
+            desc = f"**Total: {c}**\n" + desc
             e.add_field(name=LOOT_TYPE_SWITCHER[loot_type], value=desc)
 
         await interaction.response.send_message(embed=e)
