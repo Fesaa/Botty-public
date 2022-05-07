@@ -63,14 +63,14 @@ class ConfigHandler(commands.Cog):
             self.bot = ConfigHandler.bot
             
         @app_commands.command(name='command_prefix', description='Change my prefix')
-        @app_commands.checks.has_permissions(administrator=True)
+        @app_commands.default_permissions(administrator=True)
         async def _command_prefix(self, interaction: Interaction, new_prefix: str):
             self.bot.db.update_prefix(interaction.guild_id, new_prefix)
             await interaction.response.send_message(f"The prefix has been updated to {new_prefix}", ephemeral=True)
         
 
         @app_commands.command(name='perms', description='Update channel/roles')
-        @app_commands.checks.has_permissions(administrator=True)
+        @app_commands.default_permissions(administrator=True)
         @app_commands.choices(
             channel_type = [
                 Choice(name="WordSnake", value='WordSnake'),
@@ -135,7 +135,7 @@ class ConfigHandler(commands.Cog):
                 
 
         @app_commands.command(name='game_settings', description='Change the settings of games')
-        @app_commands.checks.has_permissions(administrator=True)
+        @app_commands.default_permissions(administrator=True)
         @app_commands.choices(
             game_setting = [
                 Choice(name='Maximum amount of users displayed on a leaderbord (Default: 15, Max: 20)', value='max_lb_size'),
