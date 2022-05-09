@@ -85,7 +85,7 @@ class EditCubeletSelect(Select):
             SelectOption(label="Unobtainable", value="change_cubelet_unobtainable", emoji="⬛")
         ]
 
-        options = [i for i in options if i.value[14:] != selected_cubelet][15:]
+        options = [i for i in options if i.value[15:] != selected_cubelet]
 
         super().__init__(custom_id='change_cubelet', placeholder="Choose new cubelet", options=options)
     
