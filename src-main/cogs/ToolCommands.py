@@ -1,4 +1,5 @@
-from discord import Interaction, Member, Embed, app_commands, TextChannel
+import discord
+
 from discord.ext import commands
 
 class ToolCommands(commands.Cog):
@@ -8,20 +9,20 @@ class ToolCommands(commands.Cog):
         super().__init__()
     
     @commands.command(aliases=['avt'], no_pm=True)
-    async def avatar(self, ctx, user: Member = None):
+    async def avatar(self, ctx, user: discord.Member = None):
         if user is None:
             user = ctx.author
-        embed = Embed(title=f"Avatar of {user}", color=0xad3998)
+        embed = discord.Embed(title=f"Avatar of {user}", color=0xad3998)
         embed.description = f"Links: \n [png]({str(user.avatar.url).replace('webp', 'png')}) | [jpg]" \
                             f"({str(user.avatar_url).replace('webp', 'jpg')}) | [webp]({user.avatar.url})"
         embed.set_image(url=user.avatar.url)
         await ctx.send(embed=embed)
     
     @commands.command(brief=f"info <user>` - to send the embed with info about the user.", no_pm=True)
-    async def info(self, ctx: commands.Context, user: Member = None):
+    async def info(self, ctx: commands.Context, user: discord.Member = None):
         if user is None:
             user = ctx.author
-        embed = Embed(title=f"Some (ir)relevant info about {user}", color=0xad3998)
+        embed = discord.Embed(title=f"Some (ir)relevant info about {user}", color=0xad3998)
 
         if user.activity is None:
             act = None
@@ -41,35 +42,38 @@ class ToolCommands(commands.Cog):
 
         await ctx.send(embed=embed)
     
-    @app_commands.command(name='leaderboard', description='Fetch the leaderboard for a game in a specific channel!')
-    @app_commands.choices(
+    @commands.hybrid_command(name='leaderboard', description='Fetch the leaderboard for a game in a specific channel!', aliases=['lb'])
+    @discord.app_commands.choices(
         game = [
-            app_commands.Choice(name='ConnectFour', value='ConnectFour'),
-            app_commands.Choice(name='HangMan', value='HangMan'),
-            app_commands.Choice(name='HigherLower', value='HigherLower'),
-            app_commands.Choice(name='NTBPL', value='NTBPL'),
-            app_commands.Choice(name='Wordsnake', value='WordSnake')
+            discord.app_commands.Choice(name='ConnectFour', value='ConnectFour'),
+            discord.app_commands.Choice(name='HangMan', value='HangMan'),
+            discord.app_commands.Choice(name='HigherLower', value='HigherLower'),
+            discord.app_commands.Choice(name='NTBPL', value='NTBPL'),
+            discord.app_commands.Choice(name='Wordsnake', value='WordSnake')
         ]
     )
-    async def _leaderboard(self, interaction: Interaction, game: str, channel: TextChannel):
-        max_lb_size = self.bot.db.get_game_setting(interaction.guild_id, 'max_lb_size')
-        data = self.bot.db.get_lb(game, channel.id, max_lb_size)
+    async def _leaderboard(self, ctx: commands.Context, game: str = None, channel: discord.TextChannel = None):
+
+        if not channel:
+            channel = ctx.channel
+        
+        max_lb_size = self.bot.db.get_game_setting(ctx.guild.id, 'max_lb_size')
+        data = self.bot.db.get_lb(channel.id, max_lb_size, game)
+
         if data:
             description = ""
             lb_prefix = ['🥇', '🥈', '🥉'] + [str(i) for i in range(4, max_lb_size + 1)]
             for entry in data:
                 description += f"{lb_prefix[data.index(entry)]}: <@{entry[1]}> - **{entry[2]}**\n"
 
-            if interaction.user.id not in [i[1] for i in data]:
-                description += f'Your score: {self.bot.db.get_score(game, channel.id, interaction.user.id)}'
+            if ctx.author.id not in [i[1] for i in data]:
+                description += f'Your score: {self.bot.db.get_score(game, channel.id, ctx.author.id)}'
 
-
-            title = f"⭐ {game} leaderboard for {channel.name} ! 🌟"
-            embed = Embed(title=title, description=description, color=0xad3998)
-            await interaction.response.send_message(embed=embed)
+            title = f"⭐ {game if game else ''} leaderboard for {channel.name} ! 🌟"
+            embed = discord.Embed(title=title, description=description, color=0xad3998)
+            await ctx.send(embed=embed)
         else:
-            await interaction.response.send_message(f'{game} has not been played in {channel.mention}!', ephemeral=True)
-            
+            await ctx.send(game + "has not been played in" if game else "No leaderboard for" + channel.mention , ephemeral=True)
 
 async def setup(bot: commands.Bot):
     await bot.add_cog(ToolCommands(bot))

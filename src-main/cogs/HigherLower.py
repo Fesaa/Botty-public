@@ -2,7 +2,8 @@ from discord import Embed, Message
 from discord.ext import commands
 from imports.functions import time
 from random import randint
-from cogs.config_handler import get_prefix
+
+from cogs.ConfigHandler import get_prefix
 
 
 class HigherLower(commands.Cog):

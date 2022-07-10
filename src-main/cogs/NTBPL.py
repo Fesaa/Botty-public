@@ -1,8 +1,9 @@
 from discord import Embed, Message
 from discord.ext import commands
 from imports.functions import *
-from cogs.config_handler import get_prefix
 from random import randint
+
+from cogs.ConfigHandler import get_prefix
 
 
 class Ntbpl(commands.Cog):

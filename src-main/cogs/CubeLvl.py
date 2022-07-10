@@ -1,117 +1,47 @@
-from discord.ext import commands
-from discord import Interaction, app_commands, Object
 from math import ceil, sqrt
+from discord.ext import commands
+from discord import app_commands
+
 from imports import clc
 
-
-class CubeLvlHandler(commands.Cog):
+class CubeLvl(commands.Cog):
 
     def __init__(self, bot: commands.Bot) -> None:
         self.bot = bot
-        super().__init__()
-        CubeLvlHandler.bot = self.bot
-        self.bot.tree.add_command(self.CubeLvl())
+
+    async def cog_check(self, ctx: commands.Context) -> bool:
+        return ctx.channel.id in self.bot.db.get_channel(ctx.guild.id, 'CubeLvl')
+
+    @commands.hybrid_group(name='cube')
+    async def _cube(self, ctx: commands.Context) -> None:
+        ...
+  
+    @_cube.command(name='level', description='Calculate difference between two levels (Default: Difference with level 1)!')
+    @app_commands.rename(level1='current_level', level2='level_to_be')
+    async def _evel(self, ctx: commands.Context, level2: int, level1: int = 1, current_xp: int = 0):
+        lvl1 = clc.Cubelvl(level1)
+        lvl2 = clc.Cubelvl(level2)
+        xp = lvl2() - (lvl1() + current_xp)
+        levelx = clc.Cubelvl(clc.lvlxp(xp))
+        await ctx.send(
+            f"You still need **{xp}** xp to reach level **{level2}** from level **{level1}**"
+            f"\nThat's the same as winning **{levelx.win('ew')}** Eggwars games!"
+            f"\nThat's the same as winning **{levelx.win('sw')}** Skywars games!"
+            f"\nThat's the same as winning **{levelx.win('li')}** Lucky Island games!"
+            f"\nThat's the same as **{levelx.win('mt')}** thanks from a multiplier!"
+            f"\nAssume you get 400-700 thank a multiplier: \nYou'd need "
+            f"**{ceil(clc.m(levelx(), 700))}** - **{ceil(clc.m(levelx(), 400))}**"
+            f" multipliers to reach the level!"
+        )
     
-
-    class CubeLvl(app_commands.Group, name='cubelvl', description='Your personal Cubecraft calculator!'):
-
-        def __init__(self, *args, **kwargs) -> None:
-            super().__init__(*args, **kwargs)
-            self.bot = CubeLvlHandler.bot
-        
-        @app_commands.command(name='level', description='Calculate difference between two levels (Default: Difference with level 1)')
-        @app_commands.rename(
-            level1='current_level',
-            level2='level_to_be'
-        )
-        async def _level(self, interaction: Interaction, level2: int, level1: int = 1, current_xp: int = 0):
-            lvl1 = clc.Cubelvl(level1)
-            lvl2 = clc.Cubelvl(level2)
-            xp = lvl2() - (lvl1() + current_xp)
-            levelx = clc.Cubelvl(clc.lvlxp(xp))
-            await interaction.response.send_message(
-                f"You still need **{xp}** xp to reach level **{level2}** from level **{level1}**"
-                f"\nThat's the same as winning **{levelx.win('ew')}** Eggwars games!"
-                f"\nThat's the same as winning **{levelx.win('sw')}** Skywars games!"
-                f"\nThat's the same as winning **{levelx.win('li')}** Lucky Island games!"
-                f"\nThat's the same as **{levelx.win('mt')}** thanks from a multiplier!"
-                f"\nAssume you get 400-700 thank a multiplier: \nYou'd need "
-                f"**{ceil(clc.m(levelx(), 700))}** - **{ceil(clc.m(levelx(), 400))}**"
-                f" multipliers to reach the level!"
-            )
-        @app_commands.command(name='multies', description='Calculate which level you will be after using multies, or how many multies you need.')
-        @app_commands.choices(
-            action= [
-                app_commands.Choice(name='level',value='level'),
-                app_commands.Choice(name='multies', value='multies')
-            ]
-        )
-        @app_commands.rename(
-            var='level_multies',
-            tg='guessed_thanks'
-        )
-        @app_commands.describe(
-            var='Amount of multiepliers, or level you want to be'
-        )
-        async def _multies(self, interaction: Interaction, action: str, current_lvl: int, current_xp: int, var: int, tg: int):
-            if action == 'level':
-                def lvl(x):  # x = level => total xp
-                    return 900 * int((x - 1)) + 100 * int((x - 1)) ** 2
-
-                xp = lvl(int(var)) - lvl(int(current_lvl)) - int(current_xp)
-
-                def m(x):  # Amount of multipliers needed for a certain amount of xp with x /thanks
-                    return ceil(xp / (100 * x))
-                if tg < 400:
-                    await interaction.response.send_message(f"You'll need **{m(int(tg))}** multipliers if you receive "
-                                                            f"**{tg}** /thanks \nYou'll need **{m(400)}** multipliers if you receive **400** "
-                                                            f"/thanks \nYou'll need **{m(700)}** multipliers if you receive **700** /thanks")
-                elif tg < 700:
-                    await interaction.response.send_message(f"You'll need **{m(400)}** multipliers if you receive "
-                                                            f"**400** /thanks \nYou'll need **{m(int(tg))}** multipliers if you receive **{tg}"
-                                                            f"** /thanks \nYou'll need **{m(700)}** multipliers if you receive **700** /thanks")
-                elif 700 < tg:
-                    await interaction.response.send_message(f"You'll need **{m(400)}** multipliers if you receive "
-                                                            f"**400** /thanks \nYou'll need **{m(700)}** multipliers if you receive **700** /thanks \n"
-                                                            f"You'll need **{m(int(tg))}** multipliers if you receive **{tg}** /thanks")
-                elif tg == 400 or tg == 700:
-                    await interaction.response.send_message(f"You'll need **{m(400)}** multipliers if you receive "
-                                                            f"**400** /thanks \nYou'll need **{m(700)}** multipliers if you receive **700** /thanks")
-
-        
-            elif action == 'multies':
-
-                level = clc.Cubelvl(current_lvl)
-                levelx = clc.Cubelvl(clc.lvlxp(level() + current_xp))
-                if clc.xpm(tg, var) < clc.xpm(400, var):
-                    await interaction.response.send_message((f"Assuming **{tg}** /thank, you'll be level: **"
-                                                            f"{levelx.levelafterxp(clc.xpm(tg, var))}*"
-                                                            f"\nAssuming **400** /thank, you'll be level: **"
-                                                            f"{levelx.levelafterxp(clc.xpm(400, var))}**"
-                                                            f"\nAssuming **700** /thank, you'll be level: **"
-                                                            f"{levelx.levelafterxp(clc.xpm(700, var))}**"))
-                elif clc.xpm(tg, var) < clc.xpm(700, var):
-                    await interaction.response.send_message((f"Assuming **400** /thank, you'll be level: **"
-                                                            f"{levelx.levelafterxp(clc.xpm(400, var))}**"
-                                                            f"\nAssuming **{tg}** /thank, you'll be level: **"
-                                                            f"{levelx.levelafterxp(clc.xpm(tg, var))}**"
-                                                            f"\nAssuming **700** /thank, you'll be level: **"
-                                                            f"{levelx.levelafterxp(clc.xpm(700, var))}**"))
-                elif clc.xpm(700, var) < clc.xpm(tg, var):
-                    await interaction.response.send_message((f"Assuming **400** /thank, you'll be level: **"
-                                                            f"{levelx.levelafterxp(clc.xpm(400, var))}**"
-                                                            f"\nAssuming **700** /thank, you'll be level: **"
-                                                            f"{levelx.levelafterxp(clc.xpm(700, var))}**"
-                                                            f"\nAssuming **{tg}** /thank, you'll be level: **"
-                                                            f"{levelx.levelafterxp(clc.xpm(tg, var))}**"))
-                elif clc.xpm(700, var) == clc.xpm(tg, var) or clc.xpm(400, var) == clc.xpm(tg, var):
-                    await interaction.response.send_message((f"Assuming **400** /thank, you'll be level: **"
-                                                            f"{levelx.levelafterxp(clc.xpm(400, var))}**"
-                                                            f"\nAssuming **700** /thank, you'll be level: **"
-                                                            f"{levelx.levelafterxp(clc.xpm(700, var))}**"))
-
-        @app_commands.command(name='stats', description='How much of my level comes from ...?')
-        @app_commands.choices(
+    @_cube.command(name='multies', description='Calculate which level you will be after using multies!')
+    async def multies(self, ctx: commands.Context, current_lvl: int, current_xp: int, amount_of_multies: int, thanks: int = 700):
+         level = clc.Cubelvl(current_lvl)
+         levelx = clc.Cubelvl(clc.lvlxp(level() + current_xp))
+         await ctx.send(f"Assuming **{thanks}** /thank, you'll be level: **{levelx.levelafterxp(clc.xpm(thanks, amount_of_multies))}**")
+    
+    @_cube.command(name="stats", description='How much of my level comes from ...?')
+    @app_commands.choices(
             game = [
                 app_commands.Choice(name="EggWars", value="ew"),
                 app_commands.Choice(name="SkyWars", value='sw'),
@@ -123,46 +53,46 @@ class CubeLvlHandler(commands.Cog):
                 app_commands.Choice(name="Among Slimes", value="as")
             ]
         )    
-        async def _stats(self, interaction: Interaction, game: str, wins: int, games_played: int = 0, tasks_completed: int = None):
-            def lvlxp(x):  # xp = total xp => level
+    async def _stats(self, ctx: commands.Context, game: str, wins: int, games_played: int = None, tasks_completed: int = None):
+        
+        game = game.lower().replace('_', '') 
+
+        if game not in ['ew', 'sw', 'li', 'td', 'bwb', 'duels', 'ffa', 'as', 'eggwars', 'skywars', 'luckyislands', 'towerdefence', 'blockwarsbridges', 'amongslimes']:
+            await ctx.send('This game is not supported. Feel free to use the help command if needed!', ephemeral=True)
+            return
+
+
+        def lvlxp(x):  # xp = total xp => level
                 return round(-9 / 2 + 1 / 10 * sqrt(2025 + x))
+        
+        if games_played is None:
+            games_played = wins
 
-            if game == "ew":
-                xp = 250 * int(wins) + 5 * (int(games_played) - int(wins)) + 1 / 2 * int(games_played)
-                await interaction.response.send_message(f"You have gained **{str(xp)}** experience in Eggwars,"
-                                                        f" this is equivalent with level **{str(lvlxp(xp) + 1)}**")
-            elif game == "sw":
-                xp = 125 * int(wins) + 5 * (int(games_played) - int(wins)) + 1 / 2 * int(games_played)
-                await interaction.response.send_message(f"You have gained **{str(xp)}** experience in SkyWars,"
-                                                         f" this is equivalent with level **{str(lvlxp(xp) + 1)}**")
-            elif game == "li":
-                xp = 120 * int(wins) + 5 * (int(games_played) - int(wins)) + 1 / 2 * int(games_played)
-                await interaction.response.send_message(f"You have gained **{str(xp)}** experience in Lucky Islands,"
-                                                        f" this is equivalent with level **{str(lvlxp(xp) + 1)}**")
-            elif game == "td":
-                xp = 150 * int(wins) + 5 * (int(games_played) - int(wins)) + 1 / 2 * int(games_played)
-                await interaction.response.send_message(f"You have gained **{str(xp)}** experience in Tower Defense,"
-                                                        f" this is equivalent with level **{str(lvlxp(xp) + 1)}**")
-            elif game == "bwb":
-                xp = 100 * int(wins) + 5 * (int(games_played) - int(wins)) + 1 / 2 * int(games_played)
-                await interaction.response.send_message(f"You have gained **{str(xp)}** experience in BlockWars Bridges,"
-                                                        f" this is equivalent with level **{str(lvlxp(xp) + 1)}**")
-            elif game == "duels":
-                xp = 10 * int(wins) + 1 / 2 * int(games_played)
-                await interaction.response.send_message(f"You have gained **{str(xp)}** experience in Duels,"
-                                                        f" this is equivalent with level **{str(lvlxp(xp) + 1)}**")
-            elif game == "ffa":
-                xp = 1 * int(wins)
-                await interaction.response.send_message(f"You have gained **{str(xp)}** experience in Duels,"
-                                                        f" this is equivalent with level **{str(lvlxp(xp) + 1)}**")
-            elif game == "as":
-                xp = 100 * int(wins) + 3 * int(tasks_completed) + 2 / 3 * int(games_played) * 30 + 5 * (
-                        int(games_played) - int(wins)) + 1 / 2 * int(games_played)
-
-                await interaction.response.send_message(f"You have gained **{str(xp)}** experience in Among Slimes,"
-                                                        f" this is equivalent with level **{str(lvlxp(xp) + 1)}**")
-
-
+        if game in ['ew', 'eggwars']:
+            xp = 250 * wins + 5 * (games_played - wins) + 1 / 2 * games_played
+            await ctx.send(f"You have gained **{xp}** experience in Eggwars, this is equivalent with level **{lvlxp(xp) + 1}**")
+        elif game in ['sw', 'skywars']:
+            xp = 125 * wins + 5 * (games_played - wins) + 1 / 2 * games_played
+            await ctx.send(f"You have gained **{xp}** experience in SkyWars, this is equivalent with level **{lvlxp(xp) + 1}**")
+        elif game in ["li", 'luckyislands']:
+            xp = 120 * wins + 5 * (games_played - wins) + 1 / 2 * games_played
+            await ctx.send(f"You have gained **{xp}** experience in Lucky Islands, this is equivalent with level **{lvlxp(xp) + 1}**")
+        elif game in ['td', 'towerdefence']:
+            xp = 150 * wins + 5 * (games_played - wins) + 1 / 2 * games_played
+            await ctx.send(f"You have gained **{xp}** experience in Tower Defense, this is equivalent with level **{lvlxp(xp) + 1}**")
+        elif game in ['bwb', 'blockwarsbridges']:
+            xp = 100 * wins + 5 * (games_played - wins) + 1 / 2 * games_played
+            await ctx.send(f"You have gained **{xp}** experience in BlockWars Bridges, this is equivalent with level **{lvlxp(xp) + 1}**")
+        elif game == "duels":
+            xp = 10 * wins + 1 / 2 * games_played
+            await ctx.send(f"You have gained **{xp}** experience in Duels, this is equivalent with level **{lvlxp(xp) + 1}**")
+        elif game == "ffa":
+            xp = 1 * wins
+            await ctx.send(f"You have gained **{xp}** experience in Duels, this is equivalent with level **{lvlxp(xp) + 1}**")
+        elif game in ['as', 'amongslimes']:
+            xp = 100 * wins + 3 * int(tasks_completed) + 2 / 3 * games_played * 30 + 5 * (games_played - wins) + 1 / 2 * games_played
+            await ctx.send(f"You have gained **{xp}** experience in Among Slimes, this is equivalent with level **{lvlxp(xp) + 1}**")
+    
     @commands.command(description="How good are my stats?", brief=f"ratio_ew <wins> <Kills> <Eliminations> <Deaths>"
                                                                   f" <Games played> <Eggs Broken> <Blocks placed>"
                                                                   f" <Blocks walked> <Days> <Hours> <Minutes> <Seconds>"
@@ -273,5 +203,5 @@ class CubeLvlHandler(commands.Cog):
                            f"Arrows Hit/Games Played **{ah_gp}**")
 
 
-async def setup(bot: commands.Bot):
-    await bot.add_cog(CubeLvlHandler(bot))
+async def setup(bot: commands.Bot) -> None:
+    await bot.add_cog(CubeLvl(bot))
