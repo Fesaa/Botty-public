@@ -17,7 +17,7 @@ class ToolCommands(commands.Cog):
             user = ctx.author
         embed = discord.Embed(title=f"Avatar of {user}", color=0xad3998)
         embed.description = f"Links: \n [png]({str(user.avatar.url).replace('webp', 'png')}) | [jpg]" \
-                            f"({str(user.avatar_url).replace('webp', 'jpg')}) | [webp]({user.avatar.url})"
+                            f"({str(user.avatar.url).replace('webp', 'jpg')}) | [webp]({user.avatar.url})"
         embed.set_image(url=user.avatar.url)
         await ctx.send(embed=embed)
     
