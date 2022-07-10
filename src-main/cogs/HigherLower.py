@@ -1,4 +1,4 @@
-from discord import Embed, Message
+from discord import Embed, Message, DMChannel
 from discord.ext import commands
 from imports.functions import time
 from random import randint
@@ -36,7 +36,7 @@ class HigherLower(commands.Cog):
     @commands.Cog.listener()
     async def on_message(self, msg: Message):
         if msg.author.bot:
-            pass
+            return
         elif msg.channel.id in self.bot.db.get_channel(msg.guild.id, 'HigherLower'):
             data = self.bot.db.get_HigherLower_data(msg.channel.id)
 

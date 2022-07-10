@@ -10,6 +10,9 @@ class ToolCommands(commands.Cog):
     
     @commands.command(aliases=['avt'], no_pm=True)
     async def avatar(self, ctx, user: discord.Member = None):
+        """
+        A users avatar
+        """
         if user is None:
             user = ctx.author
         embed = discord.Embed(title=f"Avatar of {user}", color=0xad3998)
@@ -18,8 +21,11 @@ class ToolCommands(commands.Cog):
         embed.set_image(url=user.avatar.url)
         await ctx.send(embed=embed)
     
-    @commands.command(brief=f"info <user>` - to send the embed with info about the user.", no_pm=True)
+    @commands.command(no_pm=True)
     async def info(self, ctx: commands.Context, user: discord.Member = None):
+        """
+        Small embed with information about the Member.
+        """
         if user is None:
             user = ctx.author
         embed = discord.Embed(title=f"Some (ir)relevant info about {user}", color=0xad3998)
@@ -53,6 +59,10 @@ class ToolCommands(commands.Cog):
         ]
     )
     async def _leaderboard(self, ctx: commands.Context, game: str = None, channel: discord.TextChannel = None):
+        """
+        Display the leaderboard for a game per channel, shorter: lb \n
+        Only calling lb will display the leaderboard for this channel you are in. This might cause some weird points if the channel was used for more than one game.
+        """
 
         if not channel:
             channel = ctx.channel

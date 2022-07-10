@@ -300,7 +300,7 @@ class DropDownView(View):
         await interaction.response.send_modal(WordGuess(self.bot))
 
 
-class HangManCog(commands.Cog):
+class HangMan(commands.Cog):
 
     def __init__(self, bot: commands.Bot) -> None:
         super().__init__()
@@ -323,6 +323,9 @@ class HangManCog(commands.Cog):
         
     @commands.command(aliases=['hg', 'hm'])
     async def hangman(self, ctx: commands.Context):
+        """
+        Start a game of HangMan, shorter: hm
+        """
         if ctx.channel.id in self.bot.db.get_channel(ctx.guild.id, 'HangMan'):
             word = get_HangMan_word()
 
@@ -344,4 +347,4 @@ class HangManCog(commands.Cog):
 
 
 async def setup(bot: commands.Bot):
-    await bot.add_cog(HangManCog(bot))
+    await bot.add_cog(HangMan(bot))

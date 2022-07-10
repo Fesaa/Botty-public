@@ -1,6 +1,6 @@
 from math import ceil, sqrt
 from discord.ext import commands
-from discord import app_commands
+from discord import app_commands, DMChannel
 
 from imports import clc
 
@@ -10,15 +10,23 @@ class CubeLvl(commands.Cog):
         self.bot = bot
 
     async def cog_check(self, ctx: commands.Context) -> bool:
+        if isinstance(ctx.channel, DMChannel) or ctx.author.bot:
+            return False
         return ctx.channel.id in self.bot.db.get_channel(ctx.guild.id, 'CubeLvl')
 
     @commands.hybrid_group(name='cube')
     async def _cube(self, ctx: commands.Context) -> None:
+        """
+        Quickly calculate a bunch of stuff around the CubeCraft leveling system!
+        """
         ...
   
     @_cube.command(name='level', description='Calculate difference between two levels (Default: Difference with level 1)!')
     @app_commands.rename(level1='current_level', level2='level_to_be')
-    async def _evel(self, ctx: commands.Context, level2: int, level1: int = 1, current_xp: int = 0):
+    async def _level(self, ctx: commands.Context, level2: int, level1: int = 1, current_xp: int = 0):
+        """
+        Information on levels, and their differences.
+        """
         lvl1 = clc.Cubelvl(level1)
         lvl2 = clc.Cubelvl(level2)
         xp = lvl2() - (lvl1() + current_xp)
@@ -36,9 +44,12 @@ class CubeLvl(commands.Cog):
     
     @_cube.command(name='multies', description='Calculate which level you will be after using multies!')
     async def multies(self, ctx: commands.Context, current_lvl: int, current_xp: int, amount_of_multies: int, thanks: int = 700):
-         level = clc.Cubelvl(current_lvl)
-         levelx = clc.Cubelvl(clc.lvlxp(level() + current_xp))
-         await ctx.send(f"Assuming **{thanks}** /thank, you'll be level: **{levelx.levelafterxp(clc.xpm(thanks, amount_of_multies))}**")
+        """
+        Information for the rich.
+        """
+        level = clc.Cubelvl(current_lvl)
+        levelx = clc.Cubelvl(clc.lvlxp(level() + current_xp))
+        await ctx.send(f"Assuming **{thanks}** /thank, you'll be level: **{levelx.levelafterxp(clc.xpm(thanks, amount_of_multies))}**")
     
     @_cube.command(name="stats", description='How much of my level comes from ...?')
     @app_commands.choices(
@@ -54,6 +65,9 @@ class CubeLvl(commands.Cog):
             ]
         )    
     async def _stats(self, ctx: commands.Context, game: str, wins: int, games_played: int = None, tasks_completed: int = None):
+        """
+        Game specific experience gain.
+        """
         
         game = game.lower().replace('_', '') 
 
@@ -93,13 +107,12 @@ class CubeLvl(commands.Cog):
             xp = 100 * wins + 3 * int(tasks_completed) + 2 / 3 * games_played * 30 + 5 * (games_played - wins) + 1 / 2 * games_played
             await ctx.send(f"You have gained **{xp}** experience in Among Slimes, this is equivalent with level **{lvlxp(xp) + 1}**")
     
-    @commands.command(description="How good are my stats?", brief=f"ratio_ew <wins> <Kills> <Eliminations> <Deaths>"
-                                                                  f" <Games played> <Eggs Broken> <Blocks placed>"
-                                                                  f" <Blocks walked> <Days> <Hours> <Minutes> <Seconds>"
-                                                                  f"` to calculate a bunch of interesting ratio's of"
-                                                                  f" your Eggwars stats. ", no_pm=True)
+    @commands.command(description="How good are my stats?", no_pm=True)
     async def ratio_ew(self, ctx, wins: int, kills: int, elims: int, deaths: int, games: int, eggs: int, placed: int,
                        walked: int, day: int, hours: int, mins: int, sec: int):
+        """
+        A bunch of extra Eggwars statistics 
+        """
         if ctx.channel.id in self.bot.db.get_channel('CubeLvl'):
             w_l = round(wins / (games - wins), 3)
             w_lp = round(wins / games * 100, 3)
@@ -149,14 +162,12 @@ class CubeLvl(commands.Cog):
                             f"\nTime per kill - **{tpk_hour}** hours **{tpk_min}** minutes **{tpk_sec}** seconds"
                             f"\nTime per death - **{tpd_hour}** hours **{tpd_min}** minutes **{tpd_sec}** seconds"))
 
-    @commands.command(description="How good are my stats?", brief=f"ratio_sw <Wins> <Kills> <Deaths> <Games Played>"
-                                                                  f" <Arrows shot> <Arrows hit> <Blocks broken>"
-                                                                  f" <Blocks placed> <Distance walked> <Days> <Hours>"
-                                                                  f" <Minutes> <Seconds>` to calculate a bunch of"
-                                                                  f" interesting ratio's of your Skywars stats. ",
-                      no_pm=True)
+    @commands.command(description="How good are my stats?", no_pm=True)
     async def ratio_sw(self, ctx, wins: int, kills: int, deaths: int, games: int, shot: int, hit: int, broken: int,
                        placed: int, walked: int, days: int, hours: int, mins: int, secs: int):
+        """
+        A bunch of extra Skywars statistics 
+        """
         if ctx.channel.id in self.bot.db.get_channel('CubeLvl'):
             w_l = round(wins / (games - wins), 3)
             w_lp = round(wins / games * 100, 3)

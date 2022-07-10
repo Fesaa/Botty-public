@@ -1,4 +1,4 @@
-from discord import Embed, Message
+from discord import Embed, Message, DMChannel
 from discord.ext import commands
 from imports.functions import *
 from random import randint
@@ -10,6 +10,11 @@ class Ntbpl(commands.Cog):
 
     def __init__(self, bot: commands.Bot) -> None:
         self.bot = bot
+    
+    async def cog_check(self, ctx: commands.Context) -> bool:
+        if isinstance(ctx.channel, DMChannel) or ctx.author.bot:
+            return False
+        return ctx.channel.id in self.bot.db.get_channel(ctx.guild.id, 'NTBPL')
     
     def embed_logger(self, txt_log: str, channel_id: int, error_type: str = None) -> Embed:
         if error_type == 'succ':
@@ -39,41 +44,44 @@ class Ntbpl(commands.Cog):
     
     @commands.command(aliases=["b"], no_pm=True)
     async def begin(self, ctx: commands.Context, count: str=None):
-        if ctx.channel.id in self.bot.db.get_channel(ctx.guild.id, 'NTBPL'):
-            try:
-                count = abs(int(count)) % 5
-            except ValueError:
-                count = randint(2,5)
-            
-            new_letters = get_NTBPL_letters(self.bot, count, ctx.channel.id)
-            if self.bot.db.get_NTBPL_data(ctx.channel.id) is None:
-                self.bot.db.NTBPL_game_switch(ctx.channel.id, True)
-            self.bot.db.update_NTBPL_data(ctx.channel.id, count, new_letters, self.bot.user.id)
+        """
+        Begin a game of NTBPL, will overwrite the current game.
+        """
+        try:
+            count = abs(int(count)) % 5
+        except ValueError:
+            count = randint(2,5)
+        
+        new_letters = get_NTBPL_letters(self.bot, count, ctx.channel.id)
+        if self.bot.db.get_NTBPL_data(ctx.channel.id) is None:
+            self.bot.db.NTBPL_game_switch(ctx.channel.id, True)
+        self.bot.db.update_NTBPL_data(ctx.channel.id, count, new_letters, self.bot.user.id)
 
-            await ctx.send(f"A game has started! I will present to you {count} letters in a specific order,"
-                           f" you will have to reply with a word that has those letters in the same order!\n"
-                           f"The letters now are: **{new_letters}**")
-            
-            for channel_id in self.bot.db.get_channel(ctx.guild.id, 'Log'):
-                    await self.bot.get_channel(channel_id).send(embed=self.embed_logger(f' {ctx.author} started a game with {count} letters.', ctx.channel.id, 's'))
+        await ctx.send(f"A game has started! I will present to you {count} letters in a specific order,"
+                        f" you will have to reply with a word that has those letters in the same order!\n"
+                        f"The letters now are: **{new_letters}**")
+        
+        for channel_id in self.bot.db.get_channel(ctx.guild.id, 'Log'):
+                await self.bot.get_channel(channel_id).send(embed=self.embed_logger(f' {ctx.author} started a game with {count} letters.', ctx.channel.id, 's'))
     
     @commands.command(aliases=['cw'], no_pm=True)
     async def clearwords(self, ctx: commands.Context):
-        if ctx.channel.id in self.bot.db.get_channel(ctx.guild.id, 'NTBPL'):
-            self.bot.db.clear_words('NTBPL', ctx.channel.id)
+        """
+        Clear all used words
+        """
+        self.bot.db.clear_words('NTBPL', ctx.channel.id)
 
-            await ctx.message.delete()
-            await ctx.send("The used words have been reset")
+        await ctx.message.delete()
+        await ctx.send("The used words have been reset")
 
-            for channel_id in self.bot.db.get_channel(ctx.guild.id, 'Log'):
-                 await self.bot.get_channel(channel_id).send(embed=self.embed_logger(f' {ctx.author.name} reset the used words.', ctx.channel.id, 's'))
+        for channel_id in self.bot.db.get_channel(ctx.guild.id, 'Log'):
+                await self.bot.get_channel(channel_id).send(embed=self.embed_logger(f' {ctx.author.name} reset the used words.', ctx.channel.id, 's'))
 
     @commands.Cog.listener()
     async def on_message(self, msg: Message):
         if msg.author.bot:
-            pass
+            return
         elif msg.channel.id in self.bot.db.get_channel(msg.guild.id, 'NTBPL'):
-
             data = self.bot.db.get_NTBPL_data(msg.channel.id)
             sub_word = msg.content.split(' ')[0]
 

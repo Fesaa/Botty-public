@@ -1,5 +1,5 @@
 from discord.ext import commands
-from discord import ButtonStyle, Embed, Interaction, Message
+from discord import ButtonStyle, Embed, Interaction, Message, DMChannel
 from discord.ui import View, button, Button
 from asyncio import sleep
 from collections import Counter
@@ -233,24 +233,30 @@ class ConnectFourPreGameView(View):
         await leave_function(self.bot, interaction, button)
 
 
-class ConnectFourCog(commands.Cog):
+class ConnectFour(commands.Cog):
 
     def __init__(self, bot: commands.Bot) -> None:
         self.bot = bot
         super().__init__()
     
+    async def cog_check(self, ctx: commands.Context) -> bool:
+        if isinstance(ctx.channel, DMChannel) or ctx.author.bot:
+            return False
+        return ctx.channel.id in self.bot.db.get_channel(ctx.guild.id, 'ConnectFour')
+    
     @commands.command(aliases=['connect-four', 'cf', 'c4', 'ConnectFour'])
     async def connect_four(self, ctx: commands.Context):
-        if ctx.channel.id in self.bot.db.get_channel(ctx.guild.id, 'ConnectFour'):
+        """
+        Start a game of ConnectFour, shorter: c4
+        """
+        msg = await ctx.send(embed=await game_embed(self.bot, to_list(DEFAULT_CONFIG), ctx.author.id, self.bot.user.id, "Ask someone to join you!"), view=ConnectFourPreGameView(self.bot))
 
-            msg = await ctx.send(embed=await game_embed(self.bot, to_list(DEFAULT_CONFIG), ctx.author.id, self.bot.user.id, "Ask someone to join you!"), view=ConnectFourPreGameView(self.bot))
+        self.bot.db.ConnectFour_game_switch(msg.id, True)
+        self.bot.db.update_ConnectFour_data(msg.id, ctx.author.id, self.bot.user.id, DEFAULT_CONFIG)
 
-            self.bot.db.ConnectFour_game_switch(msg.id, True)
-            self.bot.db.update_ConnectFour_data(msg.id, ctx.author.id, self.bot.user.id, DEFAULT_CONFIG)
-
-            data = self.bot.db.get_ConnectFour_data(msg.id)
-            await check_inactive(self.bot, data, msg, 120)
+        data = self.bot.db.get_ConnectFour_data(msg.id)
+        await check_inactive(self.bot, data, msg, 120)
 
 
 async def setup(bot: commands.Bot):
-    await bot.add_cog(ConnectFourCog(bot))
+    await bot.add_cog(ConnectFour(bot))

@@ -33,10 +33,16 @@ class Tags(commands.Cog):
     @commands.group(name="tag")
     @commands.has_permissions(manage_channels=True)
     async def _tag(self, ctx: commands.Context):
+        """
+        Remove or Delete the tags of this server, you need manage_channels permissions to do so.
+        """
         ...
 
     @_tag.command(name="add")
     async def add(self, ctx: commands.Context, tag: str, *desc: str):
+        """
+        Add a tag to the server, if duplicate a confirmation button will appear.
+        """
         desc = " ".join(desc)
         check = self.bot.db.get_tag(ctx.guild.id, tag)
 
@@ -48,6 +54,9 @@ class Tags(commands.Cog):
     
     @_tag.command(name="delete")
     async def _delete(self, ctx: commands.Context, tag: str):
+        """
+        Delete a tag from the server, the message will be shown in case this was a mistake.
+        """
         check = self.bot.db.get_tag(ctx.guild.id, tag)
 
         if check:
