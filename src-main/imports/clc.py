@@ -1,6 +1,5 @@
 from math import sqrt
 
-
 class Cubelvl:
     def __init__(self, level):
         self.level = level

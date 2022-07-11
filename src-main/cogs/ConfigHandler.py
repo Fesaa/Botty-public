@@ -4,7 +4,9 @@ import random
 import typing
 import discord
 
-from discord.ext import commands
+from discord.ext import commands, menus
+
+from imports.MyMenuPages import MyMenuPages
 
 
 # Default values
@@ -32,7 +34,40 @@ async def get_prefix(bot: commands.Bot, msg: discord.Message):
     else:
         return commands.when_mentioned_or(bot.db.get_prefix(msg.guild.id))(bot, msg)
 
+class ChannelPageSource(menus.ListPageSource):
+
+    def __init__(self, data, options: str):
+        self.option = options
+        super().__init__(data, per_page=6)
+    
+    async def format_page(self, menu, entries):
+        page = menu.current_page
+        max_page = self.get_max_pages()
+        starting_number = page * self.per_page + 1
+        page_content = "\n\n".join(entries)
+        embed = discord.Embed(
+            title=f"Channels in use for {self.option}", 
+            description=page_content,
+            color=0xad3998,
+            timestamp=discord.utils.utcnow()
+        )
+        author = menu.ctx.author
+        embed.set_footer(text=f"Requested by {author}", icon_url=author.avatar.url)
+        return embed
+
 class ConfigHandler(commands.Cog):
+
+    CHANNEL_TYPES = [
+                discord.app_commands.Choice(name="WordSnake", value='WordSnake'),
+                discord.app_commands.Choice(name='NTBPL', value='NTBPL'),
+                discord.app_commands.Choice(name='HigherLower', value='HigherLower'),
+                discord.app_commands.Choice(name='ConnectFour', value='ConnectFour'),
+                discord.app_commands.Choice(name='HangMan', value='HangMan'),
+                discord.app_commands.Choice(name='CubeLvl', value='CubeLvl'),
+                discord.app_commands.Choice(name='Polly', value='Polly'),
+                discord.app_commands.Choice(name='Polly Roles', value='Polly_role_id'),
+                discord.app_commands.Choice(name='Logging', value='Log')
+            ]
 
     def __init__(self, bot: commands.Bot) -> None:
         self.bot = bot
@@ -50,7 +85,7 @@ class ConfigHandler(commands.Cog):
     async def on_guild_join(self, guild: discord.Guild):
         self.bot.db.innit_guild(guild.id, DEFAULT_PREFIX, DEFAULT_LB_SIZE, DEFAULT_MAX_REPLY, DEFAULT_WS_GUESSES)
     
-    @commands.command()
+    @commands.command(hidden=True)
     @commands.is_owner()
     async def sync(self, ctx: commands.Context, guilds: commands.Greedy[discord.Object], spec: typing.Optional[typing.Literal["~"]] = None) -> None:
         """
@@ -85,7 +120,7 @@ class ConfigHandler(commands.Cog):
 
         await ctx.send(f"Synced the tree to {ret}/{len(guilds)}.")
     
-    @commands.command(name='reload')
+    @commands.command(name='reload', hidden=True)
     @commands.is_owner()
     async def _reload(self, ctx: commands.Context, *names: str):
         """
@@ -127,8 +162,10 @@ class ConfigHandler(commands.Cog):
     @discord.app_commands.guild_only()
     async def _config(self, ctx: commands.Context):
         """
-        Configure various attributes, for more info use !help config. \n
-        In order to use any of these commands you'll need administrative privileges in the server. This requirement can be changed for the Slash Command variants by other admins.
+        Configure various attributes, for more info use !help config.
+        In order to use any of these commands you'll need administrative privileges in the server.
+        This requirement can be changed for the Slash Command variants by other admins.
+        Recommended to use Slash Commands, these have better auto complete options
         """
         ...
     
@@ -145,7 +182,7 @@ class ConfigHandler(commands.Cog):
     @discord.app_commands.guild_only()
     async def _channels(self, ctx: commands.Context):
         """ 
-        Remove, Add or List all channels where one of my features works. \n
+        Remove, Add or List all channels where one of my features works.
         There is no information loss when removing a channel for a game!
         """
         ...
@@ -163,20 +200,12 @@ class ConfigHandler(commands.Cog):
     
     @_channels.command(name='remove', description="Remove a channel of use")
     @discord.app_commands.autocomplete(snowflake=snowflake_autocomplete)
-    @discord.app_commands.choices(
-            channel_type = [
-                discord.app_commands.Choice(name="WordSnake", value='WordSnake'),
-                discord.app_commands.Choice(name='NTBPL', value='NTBPL'),
-                discord.app_commands.Choice(name='HigherLower', value='HigherLower'),
-                discord.app_commands.Choice(name='ConnectFour', value='ConnectFour'),
-                discord.app_commands.Choice(name='HangMan', value='HangMan'),
-                discord.app_commands.Choice(name='CubeLvl', value='CubeLvl'),
-                discord.app_commands.Choice(name='Polly', value='Polly'),
-                discord.app_commands.Choice(name='Polly Roles', value='Polly_role_id'),
-                discord.app_commands.Choice(name='Logging', value='Log')
-            ]
-    )
+    @discord.app_commands.choices(channel_type=CHANNEL_TYPES)
     async def _remove(self, ctx: commands.Context, channel_type: str, snowflake: str):
+        """
+        Remove a channel for use. 
+        While using slash commands, only used channels appear.
+        """
         if not snowflake.isdigit():
             snowflake = str([i for i in ctx.guild.channels if i.name == snowflake][0].id)
         channel_list: list = self.bot.db.get_channel(ctx.guild.id, channel_type)
@@ -187,20 +216,12 @@ class ConfigHandler(commands.Cog):
         await ctx.send(f'Removed <#{snowflake}> from channels used for {channel_type}')
     
     @_channels.command(name='add', description="Add a channel for use")
-    @discord.app_commands.choices(
-            channel_type = [
-                discord.app_commands.Choice(name="WordSnake", value='WordSnake'),
-                discord.app_commands.Choice(name='NTBPL', value='NTBPL'),
-                discord.app_commands.Choice(name='HigherLower', value='HigherLower'),
-                discord.app_commands.Choice(name='ConnectFour', value='ConnectFour'),
-                discord.app_commands.Choice(name='HangMan', value='HangMan'),
-                discord.app_commands.Choice(name='CubeLvl', value='CubeLvl'),
-                discord.app_commands.Choice(name='Polly', value='Polly'),
-                discord.app_commands.Choice(name='Polly Roles', value='Polly_role_id'),
-                discord.app_commands.Choice(name='Logging', value='Log')
-            ]
-    )
+    @discord.app_commands.choices(channel_type=CHANNEL_TYPES)
     async def _add(self, ctx: commands.Context, channel_type: str, snowflake: discord.TextChannel):
+        """
+        Add a channel for use.
+        You are able to have two games in the same channel, this is not recommended!
+        """
         channel_list: list = self.bot.db.get_channel(ctx.guild.id, channel_type)
         channel_list.append(snowflake.id)
 
@@ -213,27 +234,22 @@ class ConfigHandler(commands.Cog):
                 self.bot.db.update_HigherLower_data(snowflake, 0, random.randint(1, self.bot.db.get_game_setting(ctx.guild.id, 'HL_max_number')), self.bot.user.id)
     
     @_channels.command(name='list', description='Receive a list with all channels in use')
-    @discord.app_commands.choices(
-            channel_type = [
-                discord.app_commands.Choice(name="WordSnake", value='WordSnake'),
-                discord.app_commands.Choice(name='NTBPL', value='NTBPL'),
-                discord.app_commands.Choice(name='HigherLower', value='HigherLower'),
-                discord.app_commands.Choice(name='ConnectFour', value='ConnectFour'),
-                discord.app_commands.Choice(name='HangMan', value='HangMan'),
-                discord.app_commands.Choice(name='CubeLvl', value='CubeLvl'),
-                discord.app_commands.Choice(name='Polly', value='Polly'),
-                discord.app_commands.Choice(name='Polly Roles', value='Polly_role_id'),
-                discord.app_commands.Choice(name='Logging', value='Log')
-            ]
-    )
+    @discord.app_commands.choices(channel_type=CHANNEL_TYPES)
     async def _list(self, ctx: commands.Context, channel_type: str):
+        """
+        List channels. If more than 10 in use, only 10 will be displayed.
+        """
         channel_list: list = self.bot.db.get_channel(ctx.guild.id, channel_type)
-        channel_list = [f'<#{i}>' for i in channel_list][:10]
+        channel_list = [f'<#{i}>' for i in channel_list]
 
         if not channel_list:
             await ctx.send(f'No active channels for {channel_type}.')
             return
-        await ctx.send(f"Active channel(s) for {channel_type}\n" + "\n".join(channel_list))
+        
+        await ctx.send('Preparing MenuPages', ephemeral=True, delete_after=5)
+        formatter = ChannelPageSource(channel_list, channel_type)
+        menu = MyMenuPages(formatter, delete_message_after=True)
+        await menu.start(ctx)
     
     @_config.command(name='game_settings', description='Change the settings of games')
     @discord.app_commands.default_permissions(administrator=True)

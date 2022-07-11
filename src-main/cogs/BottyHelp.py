@@ -120,7 +120,6 @@ class HelpView(View):
         self.add_item(DestructButton())
     
     async def interaction_check(self, interaction):
-        """Only allow the author that invoke the command to be able to use the interaction"""
         return interaction.user == self.user
 
 class HelpCog(commands.Cog):

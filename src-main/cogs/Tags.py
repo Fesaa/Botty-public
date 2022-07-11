@@ -30,21 +30,31 @@ class Tags(commands.Cog):
         self.bot = bot
         super().__init__()
 
-    @commands.group(name="tag")
+    @commands.group(name="tag", invoke_without_command=True)
     @commands.has_permissions(manage_channels=True)
-    async def _tag(self, ctx: commands.Context):
+    async def _tag(self, ctx: commands.Context, tag: str):
         """
         Remove or Delete the tags of this server, you need manage_channels permissions to do so.
+        If a subcommand is not called, then this will search the tag database 
+        for the tag requested.
         """
-        ...
+
+        data = self.bot.db.get_tag(ctx.guild.id, tag)
+
+        if data:
+            await ctx.send(data['desc'],  reference=ctx.replied_reference)
+        return
 
     @_tag.command(name="add")
-    async def add(self, ctx: commands.Context, tag: str, *desc: str):
+    async def add(self, ctx: commands.Context, tag: str, *, desc: typing.Annotated[str, commands.clean_content]):
         """
         Add a tag to the server, if duplicate a confirmation button will appear.
+        This tag is server-specific and cannot be used in other servers.
         """
-        desc = " ".join(desc)
         check = self.bot.db.get_tag(ctx.guild.id, tag)
+
+        if len(desc) > 2000:
+            return await ctx.send('Tag content is a maximum of 2000 characters.')
 
         if check:
             await ctx.send(embed=discord.Embed(title=f'Confirmation: do you want to add tag "{tag}"', description=desc, colour=0xad3998), view=ConfirmationView(self.bot, tag, desc))
