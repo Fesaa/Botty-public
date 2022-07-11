@@ -156,6 +156,26 @@ class ConfigHandler(commands.Cog):
                 e.add_field(name='Failed!', value=failed_value, inline=False)
         
         await ctx.send(embed=e)
+    
+    @commands.command(hidden=True)
+    async def load(self, ctx: commands.Context, *, module: str):
+        """Loads a module."""
+        try:
+            await self.bot.load_extension(module)
+        except commands.ExtensionError as e:
+            await ctx.send(f'{e.__class__.__name__}: {e}')
+        else:
+            await ctx.send('\N{OK HAND SIGN}')
+
+    @commands.command(hidden=True)
+    async def unload(self, ctx: commands.Context, *, module: str):
+        """Unloads a module."""
+        try:
+            await self.bot.unload_extension(module)
+        except commands.ExtensionError as e:
+            await ctx.send(f'{e.__class__.__name__}: {e}')
+        else:
+            await ctx.send('\N{OK HAND SIGN}')
 
     @commands.hybrid_group(name='config', description='Config commands.')
     @discord.app_commands.default_permissions()
@@ -247,10 +267,14 @@ class ConfigHandler(commands.Cog):
             await ctx.send(f'No active channels for {channel_type}.')
             return
         
-        await ctx.send('Preparing MenuPages', ephemeral=True, delete_after=5)
+        msg = await ctx.send("List on her way!", ephemeral=True)
         formatter = ChannelPageSource(channel_list, channel_type)
         menu = MyMenuPages(formatter, delete_message_after=True)
         await menu.start(ctx)
+        try:
+            await msg.delete()
+        except discord.errors.NotFound:
+            pass
     
     @_config.command(name='game_settings', description='Change the settings of games')
     @discord.app_commands.default_permissions(administrator=True)
