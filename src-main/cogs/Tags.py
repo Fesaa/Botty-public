@@ -38,11 +38,11 @@ class Tags(commands.Cog):
         If a subcommand is not called, then this will search the tag database 
         for the tag requested.
         """
-
+        tag = tag.lower()
         data = self.bot.db.get_tag(ctx.guild.id, tag)
 
         if data:
-            await ctx.send(data['desc'],  reference=ctx.replied_reference)
+            await ctx.send(data['desc'],  reference=ctx.message.reference)
         return
 
     @_tag.command(name="add")
@@ -51,6 +51,7 @@ class Tags(commands.Cog):
         Add a tag to the server, if duplicate a confirmation button will appear.
         This tag is server-specific and cannot be used in other servers.
         """
+        tag = tag.lower()
         check = self.bot.db.get_tag(ctx.guild.id, tag)
 
         if len(desc) > 2000:
@@ -67,6 +68,7 @@ class Tags(commands.Cog):
         """
         Delete a tag from the server, the message will be shown in case this was a mistake.
         """
+        tag = tag.lower()
         check = self.bot.db.get_tag(ctx.guild.id, tag)
 
         if check:
@@ -81,12 +83,12 @@ class Tags(commands.Cog):
             return
         elif any(bool_list := [msg.content.__contains__(i) for i in (await get_prefix(self.bot, msg))]):
             prefixes = await get_prefix(self.bot, msg)
-            tag = msg.content.split(prefixes[bool_list.index(True)])[1]
+            tag = msg.content.split(prefixes[bool_list.index(True)])[1].lower()
 
             data = self.bot.db.get_tag(msg.guild.id, tag)
 
             if data:
-                await msg.channel.send(data['desc'])
+                await msg.channel.send(data['desc'], reference=msg.reference)
             return
 
 async def setup(bot: commands.Bot):
