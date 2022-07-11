@@ -1,6 +1,10 @@
+import typing
 import discord
+import datetime
 
 from discord.ext import commands
+
+import imports.time as time
 
 class ToolCommands(commands.Cog):
 
@@ -22,29 +26,43 @@ class ToolCommands(commands.Cog):
         await ctx.send(embed=embed)
     
     @commands.command(no_pm=True)
-    async def info(self, ctx: commands.Context, user: discord.Member = None):
+    async def info(self, ctx: commands.Context, user: typing.Union[discord.Member, discord.User] = None):
         """
         Small embed with information about the Member.
         """
-        if user is None:
-            user = ctx.author
-        embed = discord.Embed(title=f"Some (ir)relevant info about {user}", color=0xad3998)
+        user = user or ctx.author
+        embed = discord.Embed()
+        roles = [role.name.replace('@', '@\u200b') for role in getattr(user, 'roles', [])]
+        embed.set_author(name=str(user))
 
-        if user.activity is None:
-            act = None
-        else:
-            act = str(user.activity.type).removeprefix('ActivityType.')
+        def format_date(dt: datetime.datetime):
+            if dt is None:
+                return 'N/A'
+            return f'{time.format_dt(dt, "F")} ({time.format_relative(dt)})'
+        
+        embed.add_field(name='Name | Nick | ID', value=f'{user.name} | {user.nick} | {user.id}', inline=False)
+        embed.add_field(name='Joined', value=format_date(getattr(user, 'joined_at', None)), inline=False)
+        embed.add_field(name='Created', value=format_date(user.created_at), inline=False)
+        embed.add_field(name='On Mobile | status', value=f'{user.is_on_mobile()} | {user.status}', inline=False)
 
-        embed.description = (f"Name: {user.name} | Nick: {user.nick}\n"
-                             f"Bot: {user.bot}\n"
-                             f"id: {user.id}\n"
-                             f"Acc made at: {user.created_at.strftime('%d-%m-%y %H:%M')}\n"
-                             f"Joined guild at: {user.joined_at.strftime('%d-%m-%y %H:%M')}\n"
-                             f"On mobile: {user.is_on_mobile()}\n"
-                             f"Status: {user.status}\n"
-                             f"Activity: {act}")
-        embed.set_author(name=user.name, url=f" https://discordapp.com/users/{user.id}/", icon_url=user.avatar.url)
-        embed.set_thumbnail(url="https://media1.tenor.com/images/b25bb53205e7087790cd133ff960c222/tenor.gif?itemid=7914122")
+        voice = getattr(user, 'voice', None)
+        if voice is not None:
+            vc = voice.channel
+            other_people = len(vc.members) - 1
+            voice = f'{vc.name} with {other_people} others' if other_people else f'{vc.name} by themselves'
+            embed.add_field(name='Voice', value=voice, inline=False)
+        
+        if roles:
+            embed.add_field(name='Roles', value=', '.join(roles) if len(roles) < 10 else f'{len(roles)} roles', inline=False)
+        
+        colour = user.colour
+        if colour.value:
+            embed.colour = colour
+            
+        embed.set_thumbnail(url=user.display_avatar.url)
+
+        if isinstance(user, discord.User):
+            embed.set_footer(text='This member is not in this server.')
 
         await ctx.send(embed=embed)
     
