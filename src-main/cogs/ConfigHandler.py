@@ -1,3 +1,4 @@
+import os
 import json
 import random
 import typing
@@ -36,6 +37,7 @@ class ConfigHandler(commands.Cog):
     def __init__(self, bot: commands.Bot) -> None:
         self.bot = bot
         super().__init__()
+        
     
     @commands.Cog.listener()
     async def on_ready(self):
@@ -52,7 +54,7 @@ class ConfigHandler(commands.Cog):
     @commands.is_owner()
     async def sync(self, ctx: commands.Context, guilds: commands.Greedy[discord.Object], spec: typing.Optional[typing.Literal["~"]] = None) -> None:
         """
-        Command for syncing app_commands, can only be used by Fesa.
+        Command for syncing app_commands, can only be used by my owners.
         """
         if not guilds:
             if spec == "~":
@@ -82,6 +84,43 @@ class ConfigHandler(commands.Cog):
                 ret += 1
 
         await ctx.send(f"Synced the tree to {ret}/{len(guilds)}.")
+    
+    @commands.command(name='reload')
+    @commands.is_owner()
+    async def _reload(self, ctx: commands.Context, *names: str):
+        """
+        Command for reloading Cogs, can only be used by my owners.
+        """
+        files = [f'cogs.{name}' for name in names] if names else [f'cogs.{name[:-3]}' for name in os.listdir('./cogs') if name.endswith('.py') and name != 'ConfigHandler.py']
+        successful_reloads = []
+        failed_reloads = []
+
+        for file in files:
+            try:
+                await self.bot.reload_extension(file)
+                successful_reloads.append(file)
+            except commands.errors.ExtensionFailed:
+                failed_reloads.append(file)
+        
+        e = discord.Embed(title='Cog reloads', colour=0xad3998, timestamp=discord.utils.utcnow())
+
+        succ_value = "\u200b"
+        failed_value = "\u200b"
+
+        for index, file in enumerate(successful_reloads):
+            succ_value += f"{file}\n"
+
+            if len(succ_value) > 1000 or index == len(successful_reloads) - 1:
+                e.add_field(name='Successful!', value=succ_value, inline=False)
+                succ_value = "\u200b"
+        
+        for index, file in enumerate(failed_reloads):
+            failed_value += f'{file}\n'
+
+            if len(failed_value) > 1000 or index == len(successful_reloads) - 1:
+                e.add_field(name='Failed!', value=failed_value, inline=False)
+        
+        await ctx.send(embed=e)
 
     @commands.hybrid_group(name='config', description='Config commands.')
     @discord.app_commands.default_permissions()
