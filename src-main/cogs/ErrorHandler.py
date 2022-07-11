@@ -16,7 +16,10 @@ class ErrorHandler(commands.Cog):
             pass
         else:
             if channel := self.bot.get_channel(870011461194354738):
-                await channel.send(f'<@&996004219792400405> Error occurred!', embed=discord.Embed(title="Error!", description=error))
+                e = discord.Embed(title="Error!", description=f'{type(error)}\n{error}', timestamp=discord.utils.utcnow(), colour=0xad3998)
+                e.add_field(name="Channel", value=interaction.channel.mention)
+                e.set_footer(text=f"Error by {interaction.user}", icon_url=interaction.user.avatar.url)
+                await channel.send(f'<@&996004219792400405>', embed=e)
             raise error
     
     @commands.Cog.listener()
