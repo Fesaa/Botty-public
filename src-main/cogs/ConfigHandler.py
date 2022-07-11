@@ -134,7 +134,7 @@ class ConfigHandler(commands.Cog):
             try:
                 await self.bot.reload_extension(file)
                 successful_reloads.append(file)
-            except commands.errors.ExtensionFailed:
+            except (commands.errors.ExtensionNotLoaded, commands.errors.ExtensionNotFound):
                 failed_reloads.append(file)
         
         e = discord.Embed(title='Cog reloads', colour=0xad3998, timestamp=discord.utils.utcnow())
@@ -152,7 +152,7 @@ class ConfigHandler(commands.Cog):
         for index, file in enumerate(failed_reloads):
             failed_value += f'{file}\n'
 
-            if len(failed_value) > 1000 or index == len(successful_reloads) - 1:
+            if len(failed_value) > 1000 or index == len(failed_reloads) - 1:
                 e.add_field(name='Failed!', value=failed_value, inline=False)
         
         await ctx.send(embed=e)
@@ -174,6 +174,7 @@ class ConfigHandler(commands.Cog):
         """ 
         Change the default prefix. Tagging me always works.
         """
+        new_prefix = DEFAULT_PREFIX if new_prefix == "" else new_prefix
         self.bot.db.update_prefix(ctx.guild.id, new_prefix)
         await ctx.reply(f"The prefix has been updated to {new_prefix}", ephemeral=True)
 
