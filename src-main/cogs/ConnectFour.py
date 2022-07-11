@@ -4,6 +4,8 @@ from discord.ui import View, button, Button
 from asyncio import sleep
 from collections import Counter
 
+from Botty import Botty
+
 
 DEFAULT_CONFIG = '0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0'
 EMOJI_DICT = {'0': '⚪', '1': '🟡', '2': '🔴'}
@@ -79,21 +81,21 @@ def check_win_state(config_list: list, colour: str) -> bool:
                 return True
     return False
 
-async def check_inactive(bot: commands.Bot, current_data: dict, msg: Message, time_out: int) -> None:
+async def check_inactive(bot: Botty, current_data: dict, msg: Message, time_out: int) -> None:
     await sleep(time_out)
     if current_data == bot.db.get_ConnectFour_data(msg.id):
         bot.db.ConnectFour_game_switch(msg.id, False)
 
         await msg.edit(embed=Embed(title="Failed game", description=f"Ended game due to inactivity (2min).", color=0xad3998 ), view=View())
 
-async def game_embed(bot: commands.bot, config: list, p1: int, p2: int, footer_text: str) -> Embed:
+async def game_embed(bot: Botty, config: list, p1: int, p2: int, footer_text: str) -> Embed:
         embed = Embed(title=" 🟡 Connect four 🔴", colour=0xad3998)
         embed.add_field(
             name=f"Game of: {(await bot.fetch_user(p1)).name} - {(await bot.fetch_user(p2)).name}", value=to_msg(config))
         embed.set_footer(text=footer_text)
         return embed
 
-async def leave_function(bot: commands.bot, interaction: Interaction, button: Button):
+async def leave_function(bot: Botty, interaction: Interaction, button: Button):
     data = bot.db.get_ConnectFour_data(interaction.message.id)
     bot.db.ConnectFour_game_switch(interaction.message.id, False)
 
@@ -112,7 +114,7 @@ async def leave_function(bot: commands.bot, interaction: Interaction, button: Bu
                                                                         f"{(await bot.fetch_user(winner)).name} won the game!"\
                                                                         f" Since {(await bot.fetch_user(interaction.user.id)).name} left." ), view=View())
 
-async def register_move(bot: commands.bot, interaction: Interaction, row: int, view: View, button: Button):
+async def register_move(bot: Botty, interaction: Interaction, row: int, view: View, button: Button):
     data = bot.db.get_ConnectFour_data(interaction.message.id)
 
     made_moves = Counter(to_list(data['config']))['1'] + Counter(to_list(data['config']))['2']
@@ -167,7 +169,7 @@ async def register_move(bot: commands.bot, interaction: Interaction, row: int, v
 
 class ConnectFourGameView(View):
 
-    def __init__(self, bot: commands.bot, timeout=120):
+    def __init__(self, bot: Botty, timeout=120):
         self.bot = bot
         super().__init__(timeout=timeout)
     
@@ -210,7 +212,7 @@ class ConnectFourGameView(View):
 
 class ConnectFourPreGameView(View):
 
-    def __init__(self, bot: commands.bot, timeout=120):
+    def __init__(self, bot: Botty, timeout=120):
         self.bot = bot
         super().__init__(timeout=timeout)
     
@@ -235,7 +237,7 @@ class ConnectFourPreGameView(View):
 
 class ConnectFour(commands.Cog):
 
-    def __init__(self, bot: commands.Bot) -> None:
+    def __init__(self, bot: Botty) -> None:
         self.bot = bot
         super().__init__()
     
@@ -258,5 +260,5 @@ class ConnectFour(commands.Cog):
         await check_inactive(self.bot, data, msg, 120)
 
 
-async def setup(bot: commands.Bot):
+async def setup(bot: Botty):
     await bot.add_cog(ConnectFour(bot))

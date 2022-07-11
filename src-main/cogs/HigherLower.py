@@ -4,11 +4,12 @@ from imports.functions import time
 from random import randint
 
 from cogs.ConfigHandler import get_prefix
+from Botty import Botty
 
 
 class HigherLower(commands.Cog):
 
-    def __init__(self, bot: commands.Bot) -> None:
+    def __init__(self, bot: Botty) -> None:
         super().__init__()
         self.bot = bot
     
@@ -76,5 +77,5 @@ class HigherLower(commands.Cog):
                             await self.bot.get_channel(channel_id).send(embed=self.embed_logger(f'{msg.author.name} thought letters are numbers.',
                                                                         msg.channel.id, 'error'))
                                                 
-async def setup(bot: commands.Bot):
+async def setup(bot: Botty):
     await bot.add_cog(HigherLower(bot))

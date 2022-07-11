@@ -3,9 +3,11 @@ import discord
 from discord.ext import commands
 from discord.app_commands import AppCommandError
 
+from Botty import Botty
+
 class ErrorHandler(commands.Cog):
 
-    def __init__(self, bot: commands.Bot) -> None:
+    def __init__(self, bot: Botty) -> None:
         self.bot = bot
         super().__init__()
     
@@ -42,5 +44,5 @@ class ErrorHandler(commands.Cog):
                 await channel.send(f'<@&996004219792400405>', embed=e)
             raise exc
 
-async def setup(bot: commands.Bot):
+async def setup(bot: Botty):
     await bot.add_cog(ErrorHandler(bot))

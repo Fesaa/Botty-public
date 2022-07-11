@@ -4,11 +4,12 @@ from imports.functions import *
 from random import randint
 
 from cogs.ConfigHandler import get_prefix
+from Botty import Botty
 
 
 class Ntbpl(commands.Cog):
 
-    def __init__(self, bot: commands.Bot) -> None:
+    def __init__(self, bot: Botty) -> None:
         self.bot = bot
     
     async def cog_check(self, ctx: commands.Context) -> bool:
@@ -105,5 +106,5 @@ class Ntbpl(commands.Cog):
                 else:
                     await msg.add_reaction('🔁')
 
-async def setup(bot: commands.Bot):
+async def setup(bot: Botty):
     await bot.add_cog(Ntbpl(bot))

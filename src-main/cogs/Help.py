@@ -3,6 +3,7 @@ from discord.ext import menus, commands
 from itertools import starmap, chain
 
 from imports.MyMenuPages import MyMenuPages
+from Botty import Botty
 
 class HelpPageSource(menus.ListPageSource):
     def __init__(self, data, helpcommand):
@@ -41,7 +42,7 @@ class MyHelp(commands.MinimalHelpCommand):
         await menu.start(self.context)
 
 class Help(commands.Cog):
-    def __init__(self, bot: commands.Bot):
+    def __init__(self, bot: Botty):
        self.bot = bot
         
        help_command = MyHelp()

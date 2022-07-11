@@ -4,9 +4,11 @@ from discord.ext import commands
 from discord import ButtonStyle, Embed, Guild, Interaction, Member,SelectOption
 from discord.ui import View, Select, Button
 
+from Botty import Botty
+
 POSSIBLE_GAMES = ['ConnectFour', 'HangMan', 'HigherLower', 'NTBPL', 'WordSnake']
 
-def HelpHomeEmbed(bot: commands.Bot, author: discord.Member) -> Embed:
+def HelpHomeEmbed(bot: Botty, author: discord.Member) -> Embed:
     e = Embed(title="Botty Help Menu", description='All commands can be written with random capitalization.\nAn * indicates that the argument is not required. Use the buttons below for more specific help!',
               colour = 0xad3998, timestamp=discord.utils.utcnow())
     commands = [i.name for i in bot.commands]
@@ -20,7 +22,7 @@ def HelpHomeEmbed(bot: commands.Bot, author: discord.Member) -> Embed:
 
 class HelpGameSelect(Select):
 
-    def __init__(self, bot: commands.bot, games: list[str], guild: Guild, user: Member, selected_game: str = None, selected_help: str = None):
+    def __init__(self, bot: Botty, games: list[str], guild: Guild, user: Member, selected_game: str = None, selected_help: str = None):
 
         options = [
             SelectOption(label='Home', description='Go back to the home help page!', emoji='🏠'),
@@ -83,7 +85,7 @@ class HelpGameSelect(Select):
 
 class HelpHomeButton(Button):
 
-    def __init__(self, bot: commands.bot, guild: Guild, user: Member, selected_game: str = None, selected_help: str = None):
+    def __init__(self, bot: Botty, guild: Guild, user: Member, selected_game: str = None, selected_help: str = None):
 
         self.bot = bot
         self.guild = guild
@@ -106,7 +108,7 @@ class DestructButton(Button):
 
 class HelpView(View):
 
-    def __init__(self, bot: commands.bot, guild: Guild, user: Member, selected_game: str = 'Home', selected_help: str = 'Home', timeout: int = None):
+    def __init__(self, bot: Botty, guild: Guild, user: Member, selected_game: str = 'Home', selected_help: str = 'Home', timeout: int = None):
         self.user = user
         super().__init__(timeout=timeout)
 
@@ -124,7 +126,7 @@ class HelpView(View):
 
 class HelpCog(commands.Cog):
 
-    def __init__(self, bot: commands.Bot) -> None:
+    def __init__(self, bot: Botty) -> None:
         self.bot = bot
         super().__init__()
     
@@ -137,5 +139,5 @@ class HelpCog(commands.Cog):
         await ctx.send(embed=HelpHomeEmbed(self.bot, ctx.author), view=HelpView(self.bot, ctx.guild, ctx.author))
 
 
-async def setup(bot: commands.Bot):
+async def setup(bot: Botty):
     await bot.add_cog(HelpCog(bot))

@@ -7,6 +7,7 @@ import discord
 from discord.ext import commands, menus
 
 from imports.MyMenuPages import MyMenuPages
+from Botty import Botty
 
 
 # Default values
@@ -28,7 +29,7 @@ user = config['mysql']['user']
 password = config['mysql']['password']
 
 
-async def get_prefix(bot: commands.Bot, msg: discord.Message):
+async def get_prefix(bot: Botty, msg: discord.Message):
     if isinstance(msg.channel, discord.DMChannel):
         return commands.when_mentioned_or(DEFAULT_PREFIX)(bot, msg)
     else:
@@ -69,7 +70,7 @@ class ConfigHandler(commands.Cog):
                 discord.app_commands.Choice(name='Logging', value='Log')
             ]
 
-    def __init__(self, bot: commands.Bot) -> None:
+    def __init__(self, bot: Botty) -> None:
         self.bot = bot
         super().__init__()
         
@@ -312,5 +313,5 @@ class ConfigHandler(commands.Cog):
         self.bot.db.update_game_setting(ctx.guild.id, game_setting, value)
         await ctx.send(f"Updated {updated_setting} from {current_setting} to {value}.")
                 
-async def setup(bot: commands.Bot):
+async def setup(bot: Botty):
     await bot.add_cog(ConfigHandler(bot))

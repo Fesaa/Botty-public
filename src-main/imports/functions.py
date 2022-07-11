@@ -4,6 +4,8 @@ from datetime import datetime
 from enchant import Dict
 from re import match
 
+from Botty import Botty
+
 d = Dict('en_GB')
 
 def check(word):
@@ -22,7 +24,7 @@ def get_word() -> str:
 def time() -> str:
     return str(datetime.now().strftime("%d/%m/%y -- %H:%M:%S"))
 
-def get_NTBPL_letters(bot: commands.Bot, count: int, channel_id: int) -> str:
+def get_NTBPL_letters(bot: Botty, count: int, channel_id: int) -> str:
     while True:
         word = choice(get_word())[0]
         if d.check(word):

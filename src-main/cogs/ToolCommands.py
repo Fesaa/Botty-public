@@ -5,10 +5,11 @@ import datetime
 from discord.ext import commands
 
 import imports.time as time
+from Botty import Botty
 
 class ToolCommands(commands.Cog):
 
-    def __init__(self, bot: commands.Bot) -> None:
+    def __init__(self, bot: Botty) -> None:
         self.bot = bot
         super().__init__()
     
@@ -103,5 +104,5 @@ class ToolCommands(commands.Cog):
         else:
             await ctx.send(game + "has not been played in" if game else "No leaderboard for" + channel.mention , ephemeral=True)
 
-async def setup(bot: commands.Bot):
+async def setup(bot: Botty):
     await bot.add_cog(ToolCommands(bot))

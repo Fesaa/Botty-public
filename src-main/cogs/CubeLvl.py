@@ -3,10 +3,11 @@ from discord.ext import commands
 from discord import app_commands, DMChannel
 
 from imports import clc
+from Botty import Botty
 
 class CubeLvl(commands.Cog):
 
-    def __init__(self, bot: commands.Bot) -> None:
+    def __init__(self, bot: Botty) -> None:
         self.bot = bot
 
     async def cog_check(self, ctx: commands.Context) -> bool:
@@ -214,5 +215,5 @@ class CubeLvl(commands.Cog):
                            f"Arrows Hit/Games Played **{ah_gp}**")
 
 
-async def setup(bot: commands.Bot) -> None:
+async def setup(bot: Botty) -> None:
     await bot.add_cog(CubeLvl(bot))

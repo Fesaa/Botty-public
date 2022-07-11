@@ -5,7 +5,8 @@ import traceback
 
 from discord.ext import commands
 
-from cogs.ConfigHandler import get_prefix, bot_id
+from imports.db import DataBase
+from cogs.ConfigHandler import get_prefix, bot_id, host, Database, user, password
 
 class Botty(commands.Bot):
 
@@ -19,6 +20,8 @@ class Botty(commands.Bot):
         intents= discord.Intents().all()
 
         case_insensitive=True
+
+        self.db: DataBase = DataBase(host=host, database=Database, password=password, user=user)
 
         super().__init__(command_prefix=get_prefix, allowed_mentions=allowed_mentions,
                          intents=intents, case_insensitive=case_insensitive, 

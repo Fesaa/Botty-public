@@ -4,10 +4,11 @@ import discord
 from discord.ext import commands
 
 from cogs.ConfigHandler import get_prefix
+from Botty import Botty
 
 class ConfirmationView(discord.ui.View):
 
-    def __init__(self, bot: commands.Bot, tag: str, desc: str, *, timeout: typing.Optional[float] = 180):
+    def __init__(self, bot: Botty, tag: str, desc: str, *, timeout: typing.Optional[float] = 180):
         self.bot = bot
         self.tag = tag
         self.desc = desc
@@ -26,7 +27,7 @@ class ConfirmationView(discord.ui.View):
 
 class Tags(commands.Cog):
 
-    def __init__(self, bot: commands.Bot) -> None:
+    def __init__(self, bot: Botty) -> None:
         self.bot = bot
         super().__init__()
 
@@ -93,5 +94,5 @@ class Tags(commands.Cog):
                 await msg.channel.send(data['desc'], reference=msg.reference)
             return
 
-async def setup(bot: commands.Bot):
+async def setup(bot: Botty):
     await bot.add_cog(Tags(bot))

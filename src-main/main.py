@@ -6,8 +6,7 @@ import logging.handlers
 
 os.chdir(os.path.dirname(os.path.abspath(__file__)))
 
-from cogs.ConfigHandler import host, Database, user, password, token
-from imports.db import DataBase
+from cogs.ConfigHandler import token
 from Botty import Botty
 
 logger = logging.getLogger('discord')
@@ -27,7 +26,6 @@ logger.addHandler(handler)
 
 def main():
     bot = Botty()
-    bot.db: DataBase = DataBase(host=host, database=Database, password=password, user=user)
     try:
         bot.run(token, log_handler=None)
     except discord.LoginFailure:

@@ -78,13 +78,17 @@ class Stats(commands.Cog):
         self.command_stats[ctx.guild.id] = d
     
     def total_command_executions(self, ctx: commands.Context):
-        return sum([i for i in self.bot.db.stats_get_guild_info(ctx.guild.id)['global'].values()])
+        total = 0
+        for guild in self.bot.guilds:
+            guild: discord.Guild
+            total += sum([i for i in self.bot.db.stats_get_guild_info(guild.id)['global'].values()])
+        return total
     
     @commands.Cog.listener()
     async def on_command_completion(self, ctx: commands.Context):
         self.update_guild_stat_cache(ctx)
     
-    @tasks.loop(seconds=10)
+    @tasks.loop(minutes=1)
     async def update_command_stats_loop(self):
 
         if not hasattr(self, 'command_stats'):
@@ -117,6 +121,9 @@ class Stats(commands.Cog):
     @commands.command()
     async def about(self, ctx: commands.Context):
         """Tells you information about the bot itself."""
+
+        for guild_id in self.command_stats.keys():
+            self.update_guild_stats(guild_id)
 
         embed = discord.Embed()
         embed.colour = discord.Colour.blurple()

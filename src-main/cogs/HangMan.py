@@ -4,6 +4,7 @@ from discord.ui import View, Select, button, TextInput, Modal
 from discord.ext import commands
 
 from imports.functions import get_HangMan_word, time
+from Botty import Botty
 
 HANGMANPICS = ["https://media.discordapp.net/attachments/869315104271904768/874025738238562344/01.png",
                "https://media.discordapp.net/attachments/869315104271904768/874025739098419300/02.png",
@@ -62,7 +63,7 @@ def splitletters(used_letters: str) -> list:
     else:
         return [s0, s1]
 
-async def check_inactive(bot: commands.Bot, current_data: dict, msg: Message, time_out: int):
+async def check_inactive(bot: Botty, current_data: dict, msg: Message, time_out: int):
     await asyncio.sleep(time_out)
     if current_data == bot.db.get_HangMan_data(msg.id):
         bot.db.HangMan_game_switch(msg.id, False)
@@ -128,7 +129,7 @@ async def letter_select(self, interaction: Interaction):
 
 class DropDownAM(Select):
 
-    def __init__(self, used_letters: str, bot: commands.Bot):
+    def __init__(self, used_letters: str, bot: Botty):
 
         self.bot = bot
 
@@ -157,7 +158,7 @@ class DropDownAM(Select):
 
 class DropDownNZ(Select):
 
-    def __init__(self, used_letters: str, bot: commands.Bot):
+    def __init__(self, used_letters: str, bot: Botty):
 
         self.bot = bot
 
@@ -188,7 +189,7 @@ class WordGuess(Modal):
     guess = TextInput(label="word_guess", style=TextStyle.short)
     
 
-    def __init__(self, bot: commands.Bot, title: str = "Guess the word!") -> None:
+    def __init__(self, bot: Botty, title: str = "Guess the word!") -> None:
         super().__init__(title=title)
         self.bot = bot
     
@@ -234,7 +235,7 @@ class WordGuess(Modal):
 
 class DropDownView(View):
 
-    def __init__(self, used_letters: str, bot: commands.Bot):
+    def __init__(self, used_letters: str, bot: Botty):
         super().__init__(timeout=None)
         self.bot = bot
 
@@ -302,7 +303,7 @@ class DropDownView(View):
 
 class HangMan(commands.Cog):
 
-    def __init__(self, bot: commands.Bot) -> None:
+    def __init__(self, bot: Botty) -> None:
         super().__init__()
         self.bot = bot
     
@@ -346,5 +347,5 @@ class HangMan(commands.Cog):
             await check_inactive(self.bot, self.bot.db.get_HangMan_data(msg.id), msg, 120)
 
 
-async def setup(bot: commands.Bot):
+async def setup(bot: Botty):
     await bot.add_cog(HangMan(bot))
