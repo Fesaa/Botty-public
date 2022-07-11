@@ -469,4 +469,59 @@ class DataBase:
                     'desc': data[2]}
         else:
             return None
+    
+    # ========================================================================================
+    # Stats
+
+    def stats_get_guild_info(self, guild_id: int) -> typing.Union[dict, None]:
+        self.connect()
+
+        fetch_query = "SELECT * FROM `stats` WHERE `guild_id` = %s;"
+        self.cursor.execute(fetch_query, (guild_id,))
+        data = self.cursor.fetchall()
+
+        self.disconnect()
+
+        if data:
+            d_user = {}
+            d_global = {}
+            for entry in data:
+                user_id, uses, command_name = entry[3], entry[2], entry[1]
+                if command_name in d_global:
+                    d_global[command_name] += uses
+                else:
+                    d_global[command_name] = uses
+                
+                if user_id not in d_user:
+                    d_user[user_id] = {}
+                
+                if command_name in d_user[user_id]:
+                    d_user[user_id][command_name] += uses
+                else:
+                    d_user[user_id][command_name] = uses
+            
+            return {'global': d_global,
+                    'users': d_user}
+        else:
+            return {'global': {},
+                    'users': {}}
+    
+    def stats_update_guild_info(self, guild_id: int, data: dict) -> None:
+
+        if data:
+            self.connect()
+
+            update_query = "REPLACE INTO `stats` (`guild_id`, `user_id`, `uses`, `command`) VALUES "
+
+            for user_id, command_data in data.items():
+                for command, uses in command_data.items():
+                    update_query += f"""('{guild_id}', '{user_id}', '{uses}', '{command}'),"""
+            
+            self.cursor.execute(update_query[:-1] + ";")
+            self.db_connection.commit()
+            self.disconnect()
+        
+
+
+
 
