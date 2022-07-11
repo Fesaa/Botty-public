@@ -15,10 +15,16 @@ class ErrorHandler(commands.Cog):
         elif isinstance(error, discord.app_commands.errors.CommandNotFound):
             pass
         else:
+            if channel := self.bot.get_channel(870011461194354738):
+                await channel.send(f'<@&996004219792400405> Error occurred!', embed=discord.Embed(title="Error!", description=error))
             raise error
     
     @commands.Cog.listener()
-    async def on_command_error(self, ctx: commands.Context, exc):
+    async def on_command_error(self, ctx: commands.Context, exc: commands.CommandError):
+
+        if isinstance(exc, commands.CommandInvokeError):
+            exc = exc.original
+
         if isinstance(exc, commands.errors.CommandNotFound):
             pass
         elif isinstance(exc, commands.errors.MissingRequiredArgument):
@@ -26,6 +32,11 @@ class ErrorHandler(commands.Cog):
         elif isinstance(exc, commands.errors.CheckFailure):
             pass
         else:
+            if channel := self.bot.get_channel(870011461194354738):
+                e = discord.Embed(title="Error!", description=f'{type(exc)}\n{exc}', timestamp=discord.utils.utcnow(), colour=0xad3998)
+                e.add_field(name="Channel", value=ctx.channel.mention)
+                e.set_footer(text=f"Error by {ctx.author}", icon_url=ctx.author.avatar.url)
+                await channel.send(f'<@&996004219792400405>', embed=e)
             raise exc
 
 async def setup(bot: commands.Bot):
