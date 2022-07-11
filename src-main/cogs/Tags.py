@@ -52,6 +52,8 @@ class Tags(commands.Cog):
         This tag is server-specific and cannot be used in other servers.
         """
         tag = tag.lower()
+        if tag in [i.name for i in self.bot.commands]:
+            return await ctx.send("Can't use command name as tag")
         check = self.bot.db.get_tag(ctx.guild.id, tag)
 
         if len(desc) > 2000:

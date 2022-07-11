@@ -49,7 +49,7 @@ class Ntbpl(commands.Cog):
         """
         try:
             count = abs(int(count)) % 5
-        except ValueError:
+        except (ValueError, TypeError):
             count = randint(2,5)
         
         new_letters = get_NTBPL_letters(self.bot, count, ctx.channel.id)

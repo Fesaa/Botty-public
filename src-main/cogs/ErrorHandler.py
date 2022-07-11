@@ -16,7 +16,7 @@ class ErrorHandler(commands.Cog):
             pass
         else:
             if channel := self.bot.get_channel(870011461194354738):
-                e = discord.Embed(title="Error!", description=f'{type(error)}\n{error}', timestamp=discord.utils.utcnow(), colour=0xad3998)
+                e = discord.Embed(title="Error!", description=f'{error.__class__.__name__}: {error}', timestamp=discord.utils.utcnow(), colour=0xad3998)
                 e.add_field(name="Channel", value=interaction.channel.mention)
                 e.set_footer(text=f"Error by {interaction.user}", icon_url=interaction.user.avatar.url)
                 await channel.send(f'<@&996004219792400405>', embed=e)
@@ -36,7 +36,7 @@ class ErrorHandler(commands.Cog):
             pass
         else:
             if channel := self.bot.get_channel(870011461194354738):
-                e = discord.Embed(title="Error!", description=f'{type(exc)}\n{exc}', timestamp=discord.utils.utcnow(), colour=0xad3998)
+                e = discord.Embed(title="Error!", description=f'{exc.__class__.__name__}: {exc}', timestamp=discord.utils.utcnow(), colour=0xad3998)
                 e.add_field(name="Channel", value=ctx.channel.mention)
                 e.set_footer(text=f"Error by {ctx.author}", icon_url=ctx.author.avatar.url)
                 await channel.send(f'<@&996004219792400405>', embed=e)
