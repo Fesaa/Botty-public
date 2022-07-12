@@ -32,11 +32,24 @@ class HelpPageSource(menus.ListPageSource):
         return embed
 
 class MyHelp(commands.MinimalHelpCommand):
+
+
     def get_command_brief(self, command: commands.Command):
         return command.short_doc or "Command is not documented."    
     
-    async def send_bot_help(self, mapping):
-        all_commands = list(chain.from_iterable(mapping.values()))[:-1]
+    async def send_bot_help(self, mapping: dict):
+        added_help = False
+        cmds = []
+        for cog, s in mapping.items():
+            for cmd in s:
+                if cmd.name == 'help':
+                    cmds.append(cmd) if not added_help else ""
+                    added_help = True
+                    continue
+                cmds.append(cmd)
+                
+        filtered = await self.filter_commands(cmds, sort=True)
+        all_commands = filtered
         formatter = HelpPageSource(all_commands, self)
         menu = MyMenuPages(formatter, delete_message_after=True)
         await menu.start(self.context)

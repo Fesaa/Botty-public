@@ -105,6 +105,9 @@ class Stats(commands.Cog):
     @commands.command()
     @commands.is_owner()
     async def commandstats(self, ctx: commands.Context, user: typing.Optional[discord.Member]=None):
+        """
+        Owners only command.
+        """
         self.update_guild_stats(ctx.guild.id)
         command_list: dict = self.bot.db.stats_get_guild_info(ctx.guild.id)['users' if user else 'global']
         

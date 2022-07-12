@@ -1,11 +1,11 @@
 import discord
 
 class MyMenuPages(discord.ui.View, discord.ext.menus.MenuPages):
-    def __init__(self, source, *, delete_message_after=False):
+    def __init__(self, source, ctx = None, *, delete_message_after=False):
         super().__init__(timeout=60)
         self._source = source
         self.current_page = 0
-        self.ctx = None
+        self.ctx = ctx
         self.message = None
         self.delete_message_after = delete_message_after
 
