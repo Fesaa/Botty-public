@@ -4,10 +4,10 @@ import random
 import typing
 import discord
 
+from difflib import SequenceMatcher
 from discord.ext import commands, menus
 
 from imports.MyMenuPages import MyMenuPages
-from Botty import Botty
 
 
 # Default values
@@ -29,11 +29,14 @@ user = config['mysql']['user']
 password = config['mysql']['password']
 
 
-async def get_prefix(bot: Botty, msg: discord.Message):
+async def get_prefix(bot: commands.Bot, msg: discord.Message):
     if isinstance(msg.channel, discord.DMChannel):
         return commands.when_mentioned_or(DEFAULT_PREFIX)(bot, msg)
     else:
         return commands.when_mentioned_or(bot.db.get_prefix(msg.guild.id))(bot, msg)
+
+def similar(str1, str2):
+    return SequenceMatcher(None, str1, str2).ratio()
 
 class ChannelPageSource(menus.ListPageSource):
 
@@ -70,7 +73,7 @@ class ConfigHandler(commands.Cog):
                 discord.app_commands.Choice(name='Logging', value='Log')
             ]
 
-    def __init__(self, bot: Botty) -> None:
+    def __init__(self, bot: commands.Bot) -> None:
         self.bot = bot
         super().__init__()
         
@@ -86,7 +89,7 @@ class ConfigHandler(commands.Cog):
     async def on_guild_join(self, guild: discord.Guild):
         self.bot.db.innit_guild(guild.id, DEFAULT_PREFIX, DEFAULT_LB_SIZE, DEFAULT_MAX_REPLY, DEFAULT_WS_GUESSES)
     
-    @commands.command(hidden=True)
+    @commands.command()
     @commands.is_owner()
     async def sync(self, ctx: commands.Context, guilds: commands.Greedy[discord.Object], spec: typing.Optional[typing.Literal["~"]] = None) -> None:
         """
@@ -121,7 +124,7 @@ class ConfigHandler(commands.Cog):
 
         await ctx.send(f"Synced the tree to {ret}/{len(guilds)}.")
     
-    @commands.command(name='reload', hidden=True)
+    @commands.command(name='reload', )
     @commands.is_owner()
     async def _reload(self, ctx: commands.Context, *names: str):
         """
@@ -131,15 +134,45 @@ class ConfigHandler(commands.Cog):
         successful_reloads = []
         failed_reloads = []
 
+        e = discord.Embed(title='Cog reloads', colour=0xad3998, timestamp=discord.utils.utcnow())
+
+        stray_cogs = []
+        similar_cogs = []
+
         for file in files:
+
+            if file[5:] not in self.bot.cogs:
+                suggestions = [cog for cog in self.bot.cogs if similar(file.lower(), cog.lower()) > 0.5]
+                if suggestions:
+                    similar_cogs.append((file, suggestions))
+                else:
+                    stray_cogs.append(file)
+
             try:
                 await self.bot.reload_extension(file)
                 successful_reloads.append(file)
             except (commands.errors.ExtensionNotLoaded, commands.errors.ExtensionNotFound):
                 failed_reloads.append(file)
-        
-        e = discord.Embed(title='Cog reloads', colour=0xad3998, timestamp=discord.utils.utcnow())
 
+        if similar_cogs:
+        
+            field_value = ""
+
+            for index, missing_cog in enumerate(similar_cogs):
+                field_value += f'·{missing_cog[0][5:]} -> {", ".join(missing_cog[1])}\n'
+
+                if len(field_value) > 1000 or index + 1 == len(similar_cogs):
+                    e.add_field(name='The following cogs could not be found, did you mistype?', value=field_value, inline=False)
+
+        if stray_cogs:
+            field_value = ""
+
+            for index, missing_cog in enumerate(stray_cogs):
+                field_value += f'{missing_cog[5:]}\n'
+
+                if len(field_value) > 1000 or index + 1 == len(stray_cogs):
+                    e.add_field(name='The following cogs could not be found, no suggestions found', value=field_value, inline=False)
+        
         succ_value = "\u200b"
         failed_value = "\u200b"
 
@@ -155,10 +188,14 @@ class ConfigHandler(commands.Cog):
 
             if len(failed_value) > 1000 or index == len(failed_reloads) - 1:
                 e.add_field(name='Failed!', value=failed_value, inline=False)
-        
-        await ctx.send(embed=e)
+            
+        if failed_reloads:
+            await ctx.send(embed=e)
+        else:
+            await ctx.send('\N{OK HAND SIGN}')
     
-    @commands.command(hidden=True)
+    @commands.command()
+    @commands.is_owner()
     async def load(self, ctx: commands.Context, *, module: str):
         """Loads a module."""
         try:
@@ -168,7 +205,8 @@ class ConfigHandler(commands.Cog):
         else:
             await ctx.send('\N{OK HAND SIGN}')
 
-    @commands.command(hidden=True)
+    @commands.command()
+    @commands.is_owner()
     async def unload(self, ctx: commands.Context, *, module: str):
         """Unloads a module."""
         try:
@@ -313,5 +351,5 @@ class ConfigHandler(commands.Cog):
         self.bot.db.update_game_setting(ctx.guild.id, game_setting, value)
         await ctx.send(f"Updated {updated_setting} from {current_setting} to {value}.")
                 
-async def setup(bot: Botty):
+async def setup(bot: commands.Bot):
     await bot.add_cog(ConfigHandler(bot))
