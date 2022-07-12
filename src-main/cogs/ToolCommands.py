@@ -1,11 +1,54 @@
+import re
+import aiohttp
 import typing
 import discord
 import datetime
 
-from discord.ext import commands
+from discord.ext import commands, menus
 
 import imports.time as time
+from imports.MyMenuPages import MyMenuPages
 from Botty import Botty
+
+class UrbanDictionaryPageSource(menus.ListPageSource):
+    BRACKETED = re.compile(r'(\[(.+?)\])')
+
+    def __init__(self, data: list[dict[str, typing.Any]]):
+        super().__init__(entries=data, per_page=1)
+
+    def cleanup_definition(self, definition: str, *, regex=BRACKETED) -> str:
+        def repl(m):
+            word = m.group(2)
+            return f'[{word}](http://{word.replace(" ", "-")}.urbanup.com)'
+
+        ret = regex.sub(repl, definition)
+        if len(ret) >= 2048:
+            return ret[0:2000] + ' [...]'
+        return ret
+
+    async def format_page(self, menu: MyMenuPages, entry: dict[str, typing.Any]):
+        maximum = self.get_max_pages()
+        title = f'{entry["word"]}: {menu.current_page + 1} out of {maximum}' if maximum else entry['word']
+        embed = discord.Embed(title=title, colour=0xE86222, url=entry['permalink'])
+        embed.set_footer(text=f'by {entry["author"]}')
+        embed.description = self.cleanup_definition(entry['definition'])
+
+        try:
+            up, down = entry['thumbs_up'], entry['thumbs_down']
+        except KeyError:
+            pass
+        else:
+            embed.add_field(name='Votes', value=f'\N{THUMBS UP SIGN} {up} \N{THUMBS DOWN SIGN} {down}', inline=False)
+
+        try:
+            date = discord.utils.parse_time(entry['written_on'][0:-1])
+        except (ValueError, KeyError):
+            pass
+        else:
+            embed.timestamp = date
+
+        return embed
+
 
 class ToolCommands(commands.Cog):
 
@@ -66,6 +109,24 @@ class ToolCommands(commands.Cog):
             embed.set_footer(text='This member is not in this server.')
 
         await ctx.send(embed=embed)
+    
+    @commands.command(name='urban')
+    async def _urban(self, ctx: commands.Context, *, word: str):
+        """Searches urban dictionary."""
+
+        url = 'http://api.urbandictionary.com/v0/define'
+        async with aiohttp.ClientSession() as cs:
+            async with cs.get(url, params={'term': word}) as resp:
+                if resp.status != 200:
+                    return await ctx.send(f'An error occurred: {resp.status} {resp.reason}')
+
+                js = await resp.json()
+                data = js.get('list', [])
+                if not data:
+                    return await ctx.send('No results found, sorry.')
+
+        pages = MyMenuPages(UrbanDictionaryPageSource(data), ctx=ctx, delete_message_after=True)
+        await pages.start(ctx)
     
     @commands.hybrid_command(name='leaderboard', description='Fetch the leaderboard for a game in a specific channel!', aliases=['lb'])
     @discord.app_commands.choices(
