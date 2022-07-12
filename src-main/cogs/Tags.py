@@ -33,13 +33,13 @@ class Tags(commands.Cog):
 
     @commands.group(name="tag", invoke_without_command=True)
     @commands.has_permissions(manage_channels=True)
-    async def _tag(self, ctx: commands.Context, tag: str):
+    async def _tag(self, ctx: commands.Context, *tag: str):
         """
         Remove or Delete the tags of this server, you need manage_channels permissions to do so.
         If a subcommand is not called, then this will search the tag database 
         for the tag requested.
         """
-        tag = tag.lower()
+        tag = " ".join(tag).lower()
         data = self.bot.db.get_tag(ctx.guild.id, tag)
 
         if data:
@@ -61,28 +61,46 @@ class Tags(commands.Cog):
             return await ctx.send('Tag content is a maximum of 2000 characters.')
 
         if check:
-            await ctx.send(embed=discord.Embed(title=f'Confirmation: do you want to add tag "{tag}"', description=desc, colour=0xad3998), view=ConfirmationView(self.bot, tag, desc))
+            e = discord.Embed(title=f'Confirmation!', colour=0xad3998)
+            e.add_field(name='Old:', value=check['desc'][:1000] + '...')
+            e.add_field(name='New:', value=desc[:1000] + '...')
+
+            await ctx.send(embed=e, view=ConfirmationView(self.bot, tag, desc))
         else:
             self.bot.db.add_tag(ctx.guild.id, tag, desc)
-            await ctx.send(embed=discord.Embed(title=f'Added "{tag}"!', description=desc, colour=0xad3998))
+            await ctx.send('\N{OK HAND SIGN}')
     
     @_tag.command(name="delete")
-    async def _delete(self, ctx: commands.Context, tag: str):
+    async def _delete(self, ctx: commands.Context, *tag: str):
         """
-        Delete a tag from the server, the message will be shown in case this was a mistake.
+        Delete a tag from the server.
+        """
+        tag = " ".join(tag).lower()
+        check = self.bot.db.get_tag(ctx.guild.id, tag)
+
+        if check:
+            self.bot.db.delete_tag(ctx.guild.id, tag)
+            await ctx.send('\N{OK HAND SIGN}')
+        else:
+            await ctx.send("This is not a valid tag.")
+    
+    @_tag.command(name='edit')
+    async def _edit(self, ctx: commands.Context, tag: str, *, desc: typing.Annotated[str, commands.clean_content]):
+        """
+        Edit a tag from the server.
         """
         tag = tag.lower()
         check = self.bot.db.get_tag(ctx.guild.id, tag)
 
         if check:
-            self.bot.db.delete_tag(ctx.guild.id, tag)
-            await ctx.send(embed=discord.Embed(title=f'Deleted "{tag}"!', description=check["desc"], colour=0xad3998))
+            self.bot.db.update_tag(ctx.guild.id, tag, desc)
+            await ctx.send('\N{OK HAND SIGN}')
         else:
-            await ctx.send("This is not a valid tag.")
+            await ctx.send('Tag not found.')
     
     @commands.Cog.listener()
     async def on_message(self, msg: discord.Message):
-        if msg.author.bot or isinstance(msg.channel, discord.DMChannel) or len(msg.content.split(' ')) > 1:
+        if msg.author.bot or isinstance(msg.channel, discord.DMChannel):
             return
         elif any(bool_list := [msg.content.__contains__(i) for i in (await get_prefix(self.bot, msg))]):
             prefixes = await get_prefix(self.bot, msg)
