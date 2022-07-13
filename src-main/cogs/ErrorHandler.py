@@ -27,6 +27,9 @@ class ErrorHandler(commands.Cog):
     @commands.Cog.listener()
     async def on_command_error(self, ctx: commands.Context, exc: commands.CommandError):
 
+        if hasattr(ctx, 'error_handled'):
+            return
+
         if isinstance(exc, commands.CommandInvokeError):
             exc = exc.original
 

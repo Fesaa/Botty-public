@@ -9,5 +9,8 @@
         "database": "...",
         "user": "...",
         "password": "..."
+    },
+    "Server": {
+        "dit": "path to out"
     }
 }

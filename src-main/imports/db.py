@@ -538,6 +538,53 @@ class DataBase:
             self.db_connection.commit()
             self.disconnect()
 
+    # ========================================================================================
+    # Cube Counter Tasks
+
+    def get_next_task(self) -> typing.Union[dict, None]:
+
+        self.connect()
+        fetch_query = "SELECT * FROM `cc_tasks` ORDER BY `date` ASC LIMIT 1;"
+        self.cursor.execute(fetch_query)
+        data = self.cursor.fetchone()
+
+        if data:
+            return {
+                'channel_id': data[0],
+                'user_id': data[1],
+                'json': json.dumps(data[2].decode('utf-8')),
+                'date': data[3]
+            }
+        else:
+            return None
+    
+    def check_has_task(self, user_id) -> bool:
+
+        self.connect()
+        check_query = "SELECT * FROM `cc_tasks` WHERE `user_id` = %s;"
+        self.cursor.execute(check_query, (user_id,))
+        data = self.cursor.fetchone()
+        if data:
+            return True
+        return False
+    
+    def add_task(self, channel_id: int, user_id: int, jsonn: dict, date: str) -> None:
+
+        self.connect()
+        add_query = "INSERT INTO `cc_tasks` (`channel_id`, `user_id`, `json`, `date`) VALUES (%s, %s, %s, %s);"
+        self.cursor.execute(add_query, (channel_id, user_id, str(jsonn), date))
+        self.db_connection.commit()
+        self.disconnect()
+    
+    def remove_task(self, user_id: int) -> None:
+
+        self.connect()
+        delete_query = "DELETE FROM `cc_tasks` WHERE `user_id` = %s;"
+        self.cursor.execute(delete_query, (user_id,))
+        self.db_connection.commit()
+        self.disconnect()
+    
+
 
 
 

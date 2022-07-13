@@ -1,4 +1,3 @@
-from discord.ext import commands
 from random import choice, randint
 from datetime import datetime
 from enchant import Dict
@@ -22,7 +21,7 @@ def get_word() -> str:
         return [(line.strip()).split() for line in f]
 
 def time() -> str:
-    return str(datetime.now().strftime("%d/%m/%y -- %H:%M:%S"))
+    return str(datetime.now().strftime("%d/%m/%y %H:%M:%S"))
 
 def get_NTBPL_letters(bot: Botty, count: int, channel_id: int) -> str:
     while True:
