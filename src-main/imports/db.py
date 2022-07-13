@@ -1,3 +1,5 @@
+import ast
+import json
 import typing
 
 import mysql.connector as mysql
@@ -440,8 +442,8 @@ class DataBase:
     def update_tag(self, guild_id: int, tag: str, desc: str) -> None:
         self.connect()
 
-        insert_query = "UPDATE `tag` SET `desc` = %s WHERE `guild_id`= %s AND `tag`= %s;"
-        self.cursor.execute(insert_query, (desc, guild_id, tag))
+        insert_query = "UPDATE `tag` SET `desc` = %s WHERE (`guild_id`= %s OR `guild_id` = %s) AND `tag`= %s;"
+        self.cursor.execute(insert_query, (desc, guild_id, 000000000000000000, tag))
         self.db_connection.commit()
 
         self.disconnect()
@@ -449,18 +451,33 @@ class DataBase:
     def delete_tag(self, guild_id: int, tag: str) -> None:
         self.connect()
 
-        delete_query = "DELETE FROM `tag` WHERE `guild_id`= %s AND `tag`= %s;"
+        delete_query = "DELETE FROM `tag` WHERE `guild_id`= %s  AND `tag`= %s;"
         self.cursor.execute(delete_query, (guild_id, tag))
         self.db_connection.commit()
 
         self.disconnect()
 
-    def get_tag(self, guild_id: int, tag: str) -> typing.Union[str, None]:
+    def get_tag(self, guild_id: int, tag: str, search_global: bool=True) -> typing.Union[str, None]:
         self.connect()
 
-        fetch_query = "SELECT * FROM `tag` WHERE `guild_id`= %s AND `tag`= %s;"
+        fetch_query = "SELECT * FROM `tag` WHERE "
+        if search_global:
+            fetch_query += "(`guild_id`= %s OR `guild_id` = '000000000000000000') "
+        else:
+            fetch_query += "`guild_id`= %s "
+        
+        fetch_query += "AND `tag`= %s;"
         self.cursor.execute(fetch_query, (guild_id, tag))
-        data = self.cursor.fetchone()
+
+        if search_global:
+            data = self.cursor.fetchall()
+            if len(data) > 1:
+                data = [i for i in data if i[0] != 0][0]
+            elif data:
+                data = data[0]
+        else:
+            data = self.cursor.fetchone()
+
 
         self.disconnect()
 
@@ -520,7 +537,6 @@ class DataBase:
             self.cursor.execute(update_query[:-1] + ";")
             self.db_connection.commit()
             self.disconnect()
-        
 
 
 

@@ -8,15 +8,16 @@ from Botty import Botty
 
 class ConfirmationView(discord.ui.View):
 
-    def __init__(self, bot: Botty, tag: str, desc: str, *, timeout: typing.Optional[float] = 180):
+    def __init__(self, bot: Botty, guild_id: int, tag: str, desc: str, *, timeout: typing.Optional[float] = 180):
         self.bot = bot
+        self.guild_id = guild_id
         self.tag = tag
         self.desc = desc
         super().__init__(timeout=timeout)
 
     @discord.ui.button(label='Confirm', style=discord.ButtonStyle.green)
     async def _confirm(self, interaction: discord.Interaction, button: discord.ui.Button):
-        self.bot.db.update_tag(interaction.guild_id, self.tag, self.desc)
+        self.bot.db.update_tag(self.guild_id, self.tag, self.desc)
         await interaction.message.delete()
         await interaction.response.send_message(embed=discord.Embed(title=f'Added "{self.tag}"!', description=self.desc, colour=0xad3998), ephemeral=True)
     
@@ -47,15 +48,21 @@ class Tags(commands.Cog):
         return
 
     @_tag.command(name="add")
-    async def add(self, ctx: commands.Context, tag: str, *, desc: typing.Annotated[str, commands.clean_content]):
+    async def add(self, ctx: commands.Context, glob: typing.Optional[typing.Literal['global']],   tag: str, *, desc: typing.Annotated[str, commands.clean_content]):
         """
         Add a tag to the server, if duplicate a confirmation button will appear.
         This tag is server-specific and cannot be used in other servers.
         """
+
+        if glob:
+            guild_id = 000000000000000000
+        else:
+            guild_id = ctx.guild.id
+
         tag = tag.lower()
         if tag in [i.name for i in self.bot.commands]:
             return await ctx.send("Can't use command name as tag")
-        check = self.bot.db.get_tag(ctx.guild.id, tag)
+        check = self.bot.db.get_tag(guild_id, tag, True if glob else False)
 
         if len(desc) > 2000:
             return await ctx.send('Tag content is a maximum of 2000 characters.')
@@ -65,35 +72,47 @@ class Tags(commands.Cog):
             e.add_field(name='Old:', value=check['desc'][:1000] + '...')
             e.add_field(name='New:', value=desc[:1000] + '...')
 
-            await ctx.send(embed=e, view=ConfirmationView(self.bot, tag, desc))
+            await ctx.send(embed=e, view=ConfirmationView(self.bot, guild_id, tag, desc))
         else:
-            self.bot.db.add_tag(ctx.guild.id, tag, desc)
+            self.bot.db.add_tag(guild_id, tag, desc)
             await ctx.send('\N{OK HAND SIGN}')
     
     @_tag.command(name="delete")
-    async def _delete(self, ctx: commands.Context, *tag: str):
+    async def _delete(self, ctx: commands.Context, glob: typing.Optional[typing.Literal['global']], *tag: str):
         """
         Delete a tag from the server.
         """
+
+        if glob:
+            guild_id = 000000000000000000
+        else:
+            guild_id = ctx.guild.id
+
         tag = " ".join(tag).lower()
-        check = self.bot.db.get_tag(ctx.guild.id, tag)
+        check = self.bot.db.get_tag(guild_id, tag, True if glob else False)
 
         if check:
-            self.bot.db.delete_tag(ctx.guild.id, tag)
+            self.bot.db.delete_tag(guild_id, tag)
             await ctx.send('\N{OK HAND SIGN}')
         else:
             await ctx.send("This is not a valid tag.")
     
     @_tag.command(name='edit')
-    async def _edit(self, ctx: commands.Context, tag: str, *, desc: typing.Annotated[str, commands.clean_content]):
+    async def _edit(self, ctx: commands.Context, glob: typing.Optional[typing.Literal['global']], tag: str, *, desc: typing.Annotated[str, commands.clean_content]):
         """
         Edit a tag from the server.
         """
+
+        if glob:
+            guild_id = 000000000000000000
+        else:
+            guild_id = ctx.guild.id
+
         tag = tag.lower()
-        check = self.bot.db.get_tag(ctx.guild.id, tag)
+        check = self.bot.db.get_tag(guild_id, tag, True if glob else False)
 
         if check:
-            self.bot.db.update_tag(ctx.guild.id, tag, desc)
+            self.bot.db.update_tag(guild_id, tag, desc)
             await ctx.send('\N{OK HAND SIGN}')
         else:
             await ctx.send('Tag not found.')
@@ -106,6 +125,9 @@ class Tags(commands.Cog):
             prefixes = await get_prefix(self.bot, msg)
             tag = msg.content.split(prefixes[bool_list.index(True)])[1].lower()
 
+            if tag.split(' ')[0] == 'tag':
+                return
+                
             data = self.bot.db.get_tag(msg.guild.id, tag)
 
             if data:
