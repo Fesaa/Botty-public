@@ -33,16 +33,7 @@ class Ntbpl(commands.Cog):
         embed.add_field(name="Name to be picked later", value=txt_log)
         embed.set_footer(text=f'🆔 {channel_id} ⏳' + time())
         return embed
-    
-    @commands.Cog.listener()
-    async def on_ready(self):
-        for guild in self.bot.guilds:
-            for channel_id in self.bot.db.get_channel(guild.id, 'NTBPL'):
-                if data := self.bot.db.get_NTBPL_data(channel_id):
-                    await self.bot.get_channel(channel_id).send(f"A game was running! I will present to you {data['count']} letters in a specific order,"
-                                                                f" you will have to reply with a word that has those letters in the same order!\n"
-                                                                f"The letters now are: **{data['letters']}**")
-    
+     
     @commands.command(aliases=["b"], no_pm=True)
     async def begin(self, ctx: commands.Context, count: str=None):
         """

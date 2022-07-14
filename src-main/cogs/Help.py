@@ -1,6 +1,6 @@
 import discord
 from discord.ext import menus, commands
-from itertools import starmap, chain
+from itertools import starmap
 
 from imports.MyMenuPages import MyMenuPages
 from Botty import Botty

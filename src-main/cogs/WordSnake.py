@@ -36,14 +36,6 @@ class WordSnake(commands.Cog):
         embed.set_footer(text=f'🆔 {channel_id} ⏳' + time())
         return embed
     
-    @commands.Cog.listener()
-    async def on_ready(self): 
-        for guild in self.bot.guilds:
-            for channel_id in self.bot.db.get_channel(guild.id, 'WordSnake'):
-                if data := self.bot.db.get_WordSnake_data(channel_id):
-                    await self.bot.get_channel(channel_id).send(f"I've just come back from being offline! Here is a quick reminder of where you were"
-                                                                f" :D\nCurrent Word: **{data['last_word']}** \nCurrent Count: **{data['count']}**")
-
     @commands.command(aliases=['s'], no_pm=True)
     async def start(self, ctx: commands.Context, first_word: str=None):
         """
