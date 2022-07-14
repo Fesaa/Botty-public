@@ -114,7 +114,7 @@ class EditName(Modal):
 
     def __init__(self, bot: commands.Bot):
         self.bot = bot
-        super().__init__(title='Edit name of the submission')
+        super().__init__(title='Edit name of the submission', )
     
     async def on_submit(self, interaction: Interaction) -> None:
         msg = interaction.message
@@ -132,7 +132,7 @@ class SubmissionButtons(View):
         super().__init__(timeout=timeout)
         self.bot = bot
 
-    @button(label='Accept', style=ButtonStyle.green)
+    @button(label='Accept', style=ButtonStyle.green, custom_id='accept_submission')
     async def _accept(self, interaction: Interaction, button):
         msg = interaction.message
         info_list = [i.split("=") for i in msg.embeds[0].description.split("\n")]
@@ -160,21 +160,21 @@ class SubmissionButtons(View):
         await msg.delete()
         await self.bot.get_channel(S_CHANNEL_ID).send(f"<@{info['id']}>. Your submission for {info['name']} has been accepted!\n{msg.embeds[0].url}")
     
-    @button(label='Edit Rarity', style=ButtonStyle.gray)
+    @button(label='Edit Rarity', style=ButtonStyle.gray, custom_id='edit_rarity')
     async def edit_rarity(self, interaction: Interaction, button):
         msg = interaction.message
         await interaction.response.edit_message(embed=msg.embeds[0], view=EditRarity(self.bot, match(r"uuid=\S{32}\nloot_type=\S*\nname=.*\nrarity=(\S*)\ncubelet=\S*\nid=\d*", msg.embeds[0].description).group(1)))
 
-    @button(label='Edit Cubelet', style=ButtonStyle.gray)
+    @button(label='Edit Cubelet', style=ButtonStyle.gray, custom_id='edit_cubelet')
     async def edit_cubelet(self, interaction: Interaction, button):
         msg = interaction.message
         await interaction.response.edit_message(embed=msg.embeds[0], view=EditCubelet(self.bot, match(r"uuid=\S{32}\nloot_type=\S*\nname=.*\nrarity=\S*\ncubelet=(\S*)\nid=\d*", msg.embeds[0].description).group(1)))
     
-    @button(label='Edit Name', style=ButtonStyle.gray)
+    @button(label='Edit Name', style=ButtonStyle.gray, custom_id='edit_name')
     async def edit_name(self, interaction: Interaction, button):
         await interaction.response.send_modal(EditName(self.bot))
 
-    @button(label='Deny', style=ButtonStyle.red)
+    @button(label='Deny', style=ButtonStyle.red, custom_id='deny_submission')
     async def deny(self, interaction: Interaction, button):
         msg = interaction.message
         info_list = [i.split("=") for i in msg.embeds[0].description.split("\n")]
