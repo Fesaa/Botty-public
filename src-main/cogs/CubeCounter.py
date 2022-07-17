@@ -1,9 +1,14 @@
 import os
 import re
 import json
-import aiohttp
 import typing
+import asyncio
+import aiohttp
 import discord
+import datetime
+
+from io import BytesIO
+from PIL import Image
 
 from cogs.ConfigHandler import config
 from imports.functions import time
@@ -26,17 +31,19 @@ async def cc_sorter(bot: Botty, jsonn , channel_id, user_id) -> None:
     start_time = discord.utils.utcnow()
     async with c.typing():
         async with aiohttp.ClientSession(timeout=aiohttp.ClientTimeout(600)) as cs:
-            async with cs.post("http://192.168.0.141/api/", data=jsonn, ) as r:
-                res = r.headers
+            async with cs.post("http://127.0.0.1:8081/api/", data=jsonn, ) as r:
+                res = await r.read()
 
-        path = get_newest_file(dir, ".png")
-        file = discord.File(path, filename='graph.png')
+        with Image.open(BytesIO(res)) as my_image:
+            output_buffer = BytesIO()
+            my_image.save(output_buffer, "png")
+            output_buffer.seek(0)
 
-        embed = discord.Embed(colour=discord.Colour.blurple(), timestamp=discord.utils.utcnow(), title="Cube Counter Request!")
-        embed.set_image(url="attachment://graph.png")
-        embed.set_footer(text=human_timedelta(start_time, accuracy=None, brief=False, suffix=False))
-        bot.db.remove_task(user_id)
-        await c.send(f'<@{user_id}> your Cube Counter requests has finished!', file=file, embed=embed)
+            embed = discord.Embed(colour=discord.Colour.blurple(), timestamp=discord.utils.utcnow(), title="Cube Counter Request!")
+            embed.set_image(url="attachment://image.png")
+            embed.set_footer(text=human_timedelta(start_time, accuracy=None, brief=False, suffix=False))
+            bot.db.remove_task(user_id)
+            await c.send(f'<@{user_id}> your Cube Counter requests has finished!', file=discord.File(fp=output_buffer, filename="image.png"), embed=embed)
 
     if task := bot.db.get_next_task():
         await cc_sorter(bot, task['json'], task['channel_id'], task['user_id'])
@@ -57,8 +64,8 @@ class apiPostFlagConverter(commands.FlagConverter):
     StartDate: str = "First Date"
     EndDate: str = "End Date"
     IgnoreMessages: int = 2
-    MinMsg: int = 10
-    MinTime: float = 0.5
+    MinMsg: int = None
+    MinTime: float = None
     User: typing.Union[discord.Member, discord.User] = "True"
 
 
@@ -69,26 +76,54 @@ class CubeCounter(commands.Cog):
         super().__init__()
 
     @commands.command(name='CubeCounter', aliases=['cc'])
-    async def _CubeCounter(self, ctx: commands.Context, *,  kwargs: apiPostFlagConverter):
+    async def _CubeCounter(self, ctx: commands.Context, update: typing.Optional[typing.Literal['Update']], PastDays: typing.Optional[int],
+        PreSet: typing.Optional[typing.Literal['Staff', 'StaffHelp', 'General', 'Gen']], 
+        *,  kwargs: apiPostFlagConverter):
         """
-        Generates an image with graphs about activity in Cube Discord. Most Flags from <https://github.com/Fesaa/cube-msg-processor/blob/main/README.md#usage-terminal> are supported as kwarg.
+        Generates an image with graphs about activity in Cube Discord. 
+            Update: Updates the internal cache
+            PastDays: Only use days from the last n days, must be an integer
+            PreSet: Use a pre defined layout.
+            Kwargs: Customize your graph completely. Does not overwrite PreSet. Usage: <flag>:<value>
+                Most Flags from <https://github.com/Fesaa/cube-msg-processor/blob/main/README.md#usage-terminal> are supported as kwarg.
         """
 
-        StartDate = kwargs.StartDate if re.match(date_regex, kwargs.StartDate) else kwargs.get_flags()['StartDate'].default
+        if update:
+            cmd0, opt0 = 'cp', ('-r', '/root/Python/CubeCounter/.', '/root/Python/counter/data/input/')
+            cmd1, opt1 = 'rm', ('/root/Python/counter/data/input/client.py', '/root/Python/counter/data/input/config.json')
+            await asyncio.create_subprocess_exec(cmd0, *opt0, stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE)
+            await asyncio.create_subprocess_exec(cmd1, *opt1, stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE)
+        
+        if PastDays:
+            dt = str(datetime.datetime.now().date() - datetime.timedelta(days=PastDays))
+        else:
+            dt = None
+        
+        rt = False
+        sh = None
+        dm = False
+        if PreSet in ['General', 'Gen']:
+            sh = False
+        elif PreSet in ['Staff', 'StaffHelp']:
+            sh = True
+            rt = True
+            dm = True
+
+        StartDate = dt or (kwargs.StartDate if re.match(date_regex, kwargs.StartDate) else kwargs.get_flags()['StartDate'].default)
         EndDate = kwargs.EndDate if re.match(date_regex, kwargs.EndDate) else kwargs.get_flags()['EndDate'].default
 
         Dates = [StartDate, EndDate]
-        
+
         body_json = {
-            'Daily': kwargs.Daily,
+            'Daily': dm or kwargs.Daily,
             'DailyMessages': kwargs.DailyMessages,
             'ConsecutiveTime': kwargs.ConsecutiveTime,
             'TotalMessages': kwargs.TotalMessages,
-            'ReplyTimes': kwargs.ReplyTimes,
+            'ReplyTimes': rt or kwargs.ReplyTimes,
             'RoleDistribution': kwargs.RoleDistribution,
             'Percentages': kwargs.Percentages,
             'HourlyActivity': kwargs.HourlyActivity,
-            'StaffHelp': kwargs.StaffHelp,
+            'StaffHelp': sh or kwargs.StaffHelp,
             'Accurate': kwargs.Accurate,
             'IgnoreMessages': kwargs.IgnoreMessages,
             'MinMsg': kwargs.MinMsg,
