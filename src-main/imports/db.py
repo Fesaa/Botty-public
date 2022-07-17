@@ -1,5 +1,6 @@
 import json
 import typing
+import discord
 
 import mysql.connector as mysql
 from mysql.connector.cursor import MySQLCursor
@@ -12,9 +13,9 @@ class DataBase:
         self.user = user
         self.password = password
     
-    def connect(self) -> None:
+    def connect(self, db: str = None) -> None:
         self.db_connection: mysql.MySQLConnection = mysql.connect(host=self.host,
-                                       database=self.database,
+                                       database=db if db else self.database,
                                        user=self.user,
                                        password=self.password,
                                        buffered=True,
@@ -583,7 +584,15 @@ class DataBase:
         self.db_connection.commit()
         self.disconnect()
     
+    # ========================================================================================
+    # Activity Graphs
 
+    def insert_data(self, msg: discord.Message) -> None:
+        self.connect('msg')
 
-
-
+        self.cursor.execute("INSERT INTO `msg_counter` (`guild_id`, `user_id`, `channel_id`, `date`, `hour`, `count`) VALUES (%s, %s, %s, %s, %s, %s) ON DUPLICATE KEY UPDATE `count` = `count` + 1;", (msg.guild.id, msg.author.id, msg.channel.id, msg.created_at.date(), msg.created_at.hour, 1))
+        for role in msg.author.roles:
+            self.cursor.execute("INSERT INTO `role_count` (`guild_id`, `channel_id`, `role_id`, `count`) VALUES (%s, %s, %s, %s) ON DUPLICATE KEY UPDATE `count` = `count` + 1;", (msg.guild.id, msg.channel.id, role.id, 1))
+        self.db_connection.commit()
+        
+        self.disconnect()
