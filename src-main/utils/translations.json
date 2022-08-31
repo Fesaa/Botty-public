@@ -1,0 +1,69 @@
+{
+    "dutch": {
+        "group_name": {
+            "channels": "kanalen",
+            "config": "instellingen"
+        },
+        "group_description": {
+            "Config commands.": "Opdrachten voor het veranderen van de instellingen",
+            "Update and view used channels per type": "Verander of bekijk uw kanaal instellingen"
+        },
+        "command_name": {
+            "stats": "statestieken",
+            "interactive": "interactief",
+            "game_settings": "spel_instellingen",
+            "list": "lijst",
+            "remove": "verwijderen",
+            "add": "toevoegen",
+            "scoreboard": "scorebord"
+        },
+        "command_description": {
+            "Change my prefix": "Verander mijn prefix",
+            "Remove a channel of use": "Haal aan kanaal uit gebruik",
+            "Add a channel for use": "Breng een kanaal in gebruik",
+            "Receive a list with all channels in use": "Verkrijg een lijst van alle kanalen in gebruik",
+            "Change the settings of games": "Werk de instellingen van de spelletjes bij",
+            "Interactive menu to change config options": "Interactief menu om uw instellingen bij te werken",
+            "Calculate difference between two levels (Default: Difference with level 1)": "Bereken het verschil tussen twee levels (Standaard: Verschil met level 1)",
+            "Calculate which level you will be after using multies": "Bereken welk level u zult zijn na het gebruik van multipliers ",
+            "How much of my level comes from ...?": "Hoeveel van mij level komt van ...?",
+            "Fetch a scoreboard": "Vraag een scorebord op",
+            "Are you brave enough to try one of my questions?": "Bent u dapper genoeg om een van mijn vragen uit te proberen?"
+        },
+        "parameter_name": {
+            "current_level": "huidig_level",
+            "level_to_be": "level_te_zijn"
+        },
+        "parameter_description": {
+            "Level you aim to be": "Level dat u wilt worden",
+            "Level you are": "Level dat u bent",
+            "The amount of experience you have": "De hoeveelheid ervaring dat u heeft",
+            "The amount of multipliers you aim to use": "De hoeveelheid multipliers u van plan bent te gebruiken",
+            "Guessed amount of thanks you'll receive (Defaults: 700)": "Hoeveelheid /thanks u gokt te krijgen (Standaard: 700)",
+            "The game you want to calculate your experience gain from": "Het spel waarvoor u uw totale aantal ervaring voor wilt berekenen",
+            "Amount of wins": "Hoeveelheid overwinningen",
+            "Amount of played games (Default: $wins)": "Hoeveelheid gespeelde spelen (Standaard: $overwinningen)",
+            "Amount of completed tasks (Among Slimes only)": "Hoeveelheid geklaarde opdrachten (Enkel voor Among Slimes)",
+            "In a specific channel?": "In een specifiek kanaal?",
+            "For a specific game?": "Voor een specifiek spel?"
+        },
+        "choice_name": {
+            "Maximum amount of players displayed on a scoreboard (Default: 15, Max: 20)": "Maximaal aantal spelers vertoont op het scorebord (Standaard: 15, Maximaal: 20)",
+            "Maximum consecutive replies by the same player in HigherLower (Default: 3)": "Maximaal opeenvolgende gokken voor dezelfde speler in HigherLower (Standaard: 3)",
+            "Maximum amount of tolerated wrong guesses in WordSnake (Default 1, Max: 5)": "Maximaal aantal geteloreerde gokken in WordSnake (Standaard: 1; Maximaal: 5)",
+            "Maximum value of the number in HigherLower (Default: 1000)": "Grootste toegelaten waarde voor het getal in HigherLower (Standaard: 1000)",
+            "General Knowledge": "Algemene Kennis",
+            "Entertainment": "Vermaak",
+            "Science": "Wetenschap",
+            "Mythology": "Mythologie",
+            "Sports": "Sport",
+            "Geography": "Geografie",
+            "History": "Geschiedenis",
+            "Politics": "Politiek",
+            "Art": "Kunst",
+            "Celebrities": "Beroemdheden",
+            "Animals": "Dieren",
+            "Vehicles": "Voertuigen"
+        }
+    }
+}

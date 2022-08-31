@@ -1,81 +1,105 @@
-from discord import Embed, Message, DMChannel
-from discord.ext import commands
-from imports.functions import time
-from random import randint
+import discord
 
-from cogs.ConfigHandler import get_prefix
+from discord import Embed
+from random import randint
+from discord.ext import commands
+
+
 from Botty import Botty
+from utils.functions import time
 
 
 class HigherLower(commands.Cog):
-
     def __init__(self, bot: Botty) -> None:
         super().__init__()
         self.bot = bot
-    
+
     def embed_logger(self, txt_log, channel_id, error_type=None):
-        if error_type == 'succ':
-            colour = 0x00a86b
-        elif error_type == 'error':
-            colour = 0xf05e23
+        if error_type == "succ":
+            colour = 0x00A86B
+        elif error_type == "error":
+            colour = 0xF05E23
         else:
-            colour = 0xad3998
-        embed = Embed(title='📖 Info 📖', colour=colour)
+            colour = 0xAD3998
+        embed = Embed(title="📖 Info 📖", colour=colour)
         embed.set_author(name=self.bot.user.name, icon_url=self.bot.user.avatar.url)
         embed.add_field(name="higher_lower", value=txt_log)
-        embed.set_footer(text=f'🆔 {channel_id} ⏳' + time())
+        embed.set_footer(text=f"🆔 {channel_id} ⏳" + time())
         return embed
-    
+
     @commands.Cog.listener()
-    async def on_ready(self): 
-        for guild in self.bot.guilds:
-            for channel_id in self.bot.db.get_channel(guild.id, 'HigherLower'):
-                if (data := self.bot.db.get_HigherLower_data(channel_id)) is None:
-                    self.bot.db.HigherLower_game_switch(channel_id, True)
-                    self.bot.db.update_HigherLower_data(channel_id, 0, randint(1, self.bot.db.get_game_setting(guild.id, 'HL_max_number')), self.bot.user.id)
-    
-    @commands.Cog.listener()
-    async def on_message(self, msg: Message):
+    async def on_message(self, msg: discord.Message):
         if msg.author.bot:
             return
-        elif msg.channel.id in self.bot.db.get_channel(msg.guild.id, 'HigherLower'):
-            data = self.bot.db.get_HigherLower_data(msg.channel.id)
 
-            if data and not (msg.author.bot or msg.content[0] in (await get_prefix(self.bot, msg))):
+        if not msg.guild:
+            return
 
-                if data['count'] == self.bot.db.get_game_setting(msg.guild.id, 'HL_max_reply') and data['last_user_id'] == msg.author.id:
-                    await msg.delete()
-                
-                    for channel_id in self.bot.db.get_channel(msg.guild.id, 'Log'):
-                        await self.bot.get_channel(channel_id).send(embed=self.embed_logger(f'{msg.author.name} tried to guess more than the maximum consecutive replies allowed.',
-                                                                    msg.channel.id, 'error'))
-                else:
+        if msg.channel.id not in self.bot.cache.get_channel_id(
+            msg.guild.id, "higherlower"
+        ):
+            return
 
-                    try:
-                        sub_count = int(msg.content.split(' ')[0])
+        if msg.content.startswith(self.bot.cache.get_command_prefix(msg.guild.id)):
+            return
 
-                        if data['last_user_id'] != msg.author.id:
-                            self.bot.db.update_HigherLower_data(msg.channel.id, 0, data['number'], msg.author.id)
-                            data = self.bot.db.get_HigherLower_data(msg.channel.id)
-                        
-                        if sub_count < data['number']:
-                            self.bot.db.update_HigherLower_data(msg.channel.id, data['count'] + 1, data['number'], msg.author.id)
-                            await msg.add_reaction('⬆️')
-                        elif sub_count > data['number']:
-                            self.bot.db.update_HigherLower_data(msg.channel.id, data['count'] + 1, data['number'], msg.author.id)
-                            await msg.add_reaction('⬇️')
-                        else:
-                            await msg.add_reaction('⭐')
-                            await msg.channel.send(f"{msg.author.mention} Correct my love! I have granted you a star ⭐")
+        data = self.bot.cache.get_higherlower(msg.channel.id)
 
-                            self.bot.db.update_HigherLower_data(msg.channel.id, 0, randint(1, self.bot.db.get_game_setting(msg.guild.id, 'HL_max_number')), self.bot.user.id)
-                            self.bot.db.update_lb('HigherLower', msg.channel.id, msg.author.id)
-                    except ValueError:
-                        await msg.delete()
+        if not data:
+            data = self.bot.cache.update_higherlower(
+                0,
+                randint(
+                    1, self.bot.cache.get_game_settings(msg.guild.id, "hl_max_number")  # type: ignore
+                ),
+                self.bot.user.id,
+                msg.channel.id,
+            )
 
-                        for channel_id in self.bot.db.get_channel(msg.guild.id, 'Log'):
-                            await self.bot.get_channel(channel_id).send(embed=self.embed_logger(f'{msg.author.name} thought letters are numbers.',
-                                                                        msg.channel.id, 'error'))
-                                                
+        if (
+            data["count"]
+            == self.bot.cache.get_game_settings(msg.guild.id, "hl_max_reply")
+            and data["last_user_id"] == msg.author.id
+        ):
+            return await msg.delete()
+
+        try:
+            sub_count = int(msg.content.split(" ")[0])
+        except ValueError:
+            return await msg.delete()
+
+        if data["last_user_id"] != msg.author.id:
+            data = self.bot.cache.update_higherlower(
+                0, data["number"], msg.author.id, msg.channel.id
+            )
+
+        if sub_count < data["number"]:
+            self.bot.cache.update_higherlower(
+                data["count"] + 1, data["number"], msg.author.id, msg.channel.id
+            )
+            await msg.add_reaction("⬆️")
+        elif sub_count > data["number"]:
+            self.bot.cache.update_higherlower(
+                data["count"] + 1, data["number"], msg.author.id, msg.channel.id
+            )
+            await msg.add_reaction("⬇️")
+        else:
+            await msg.add_reaction("⭐")
+            await msg.channel.send(
+                f"{msg.author.mention} Correct my love! I have granted you a star ⭐"
+            )
+
+            self.bot.cache.update_higherlower(
+                0,
+                randint(
+                    1, self.bot.cache.get_game_settings(msg.guild.id, "hl_max_number")  # type: ignore
+                ),
+                msg.author.id,
+                msg.channel.id,
+            )
+            await self.bot.PostgreSQL.update_lb(
+                "higherlower", msg.channel.id, msg.author.id, msg.guild.id
+            )
+
+
 async def setup(bot: Botty):
     await bot.add_cog(HigherLower(bot))

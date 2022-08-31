@@ -1,137 +1,100 @@
-import typing
+import asyncpg
 import discord
-import pkg_resources
+import pkg_resources  # type: ignore
 
-from discord.ext import commands, tasks, menus
+from discord import Embed
+from discord.ext import commands, tasks # type: ignore
+from typing import (
+    TypedDict,
+    Optional
+)
+
+import utils.time as time
 
 from Botty import Botty
-from imports.MyMenuPages import MyMenuPages
-import imports.time as time
 
-class CommandsStatsPageSource(menus.ListPageSource):
 
-    def __init__(self, data):
-        super().__init__(data, per_page=9)
-    
-    async def format_page(self, menu, entries):
-        page = menu.current_page
-        max_page = self.get_max_pages()
+class DataBatchEntry(TypedDict):
+    guild_id: Optional[int]
+    channel_id: int
+    author_id: int
+    command: str
+    uses: int
 
-        e = discord.Embed(title=f"Commands [{page + 1}/{max_page}]", color=0xad3998, timestamp=discord.utils.utcnow())
-        for info in entries:
-            info: dict
-            command_name = info[0]
-            uses = info[1]
-            e.add_field(name=command_name, value=uses, inline=True)
 
-        author = menu.ctx.author
-        e.set_footer(text=f"Requested by {author}", icon_url=author.avatar.url)
-        return e
 
 class Stats(commands.Cog):
-
     def __init__(self, bot: Botty) -> None:
         self.bot = bot
-
-        self.update_command_stats_loop.start()
-
+        self._data_batch: list[DataBatchEntry] = []
+        self.bulk_insert_loop.start()
         super().__init__()
     
-    async def cog_load(self) -> None:
-        if not hasattr(self, 'command_stats'):
-            self.command_stats = {}
-            for guild in self.bot.guilds:
-                self.command_stats[guild.id] = self.bot.db.stats_get_guild_info(guild.id)['users']
-        return await super().cog_load()
+    def cog_unload(self):
+        self.bulk_insert_loop.stop()
+
+    async def bulk_insert(self) -> None:
+        query = """INSERT INTO commands (guild_id, channel_id, author_id, command, uses)
+                    SELECT x.guild, x.channel, x.author, x.command, x.used
+                    FROM jsonb_to_recordset($1::jsonb) AS
+                    x(guild BIGINT, channel BIGINT, author BIGINT, command TEXT, uses INT)
+                """
+        
+        async with self.bot.pool.acquire() as con:
+            con: asyncpg.connection.Connection  # type: ignore
+            async with con.transaction():
+                await con.execute(query, self._data_batch)
     
-    @commands.Cog.listener()
-    async def on_ready(self):
-        if not hasattr(self, 'command_stats'):
-            self.command_stats = {}
-            for guild in self.bot.guilds:
-                self.command_stats[guild.id] = self.bot.db.stats_get_guild_info(guild.id)['users']
+    async def register_command(self, ctx: commands.Context):
+        if ctx.command is None:
+            return
+
+        command = ctx.command.qualified_name
+        message = ctx.message
+        if ctx.guild is None:
+            guild_id = 0
+        else:
+            guild_id = ctx.guild.id
+
+        async with self._batch_lock:
+            self._data_batch.append(
+                {
+                    'guild': guild_id,
+                    'channel': ctx.channel.id,
+                    'author': ctx.author.id,
+                    'used': message.created_at.isoformat(),
+                    'command': command,
+                }
+            )
+    
+    @tasks.loop(minutes=1)
+    async def bulk_insert_loop(self):
+        await self.bulk_insert()
+
 
     def get_bot_uptime(self, *, brief: bool = False) -> str:
         return time.human_timedelta(self.bot.uptime, accuracy=None, brief=brief, suffix=False)
-    
-    def update_guild_stats(self, guild_id: int):
-        self.bot.db.stats_update_guild_info(guild_id, self.command_stats[guild_id])
-    
-    def update_guild_stat_cache(self, ctx: commands.Context):
-        if ctx.guild.id not in self.command_stats:
-            self.command_stats[ctx.guild.id] = {}
-        d = self.command_stats[ctx.guild.id]
-
-        if ctx.author.id not in d:
-            d[ctx.author.id] = {}
-        
-        name = ctx.command.full_parent_name
-        if len(name) > 0:
-            name += " "
-        name += ctx.command.name
-        
-        if name not in d[ctx.author.id]:
-            d[ctx.author.id][name] = 1
-        else:
-            d[ctx.author.id][name] += 1
-        
-        self.command_stats[ctx.guild.id] = d
-    
-    def total_command_executions(self, ctx: commands.Context):
-        total = 0
-        for guild in self.bot.guilds:
-            guild: discord.Guild
-            total += sum([i for i in self.bot.db.stats_get_guild_info(guild.id)['global'].values()])
-        return total
-    
-    @commands.Cog.listener()
-    async def on_command_completion(self, ctx: commands.Context):
-        self.update_guild_stat_cache(ctx)
-    
-    @tasks.loop(minutes=1)
-    async def update_command_stats_loop(self):
-
-        if not hasattr(self, 'command_stats'):
-            return
-
-        for guild_id in self.command_stats.keys():
-            self.update_guild_stats(guild_id)
 
     @commands.command()
     async def uptime(self, ctx: commands.Context):
         """Tells you how long the bot has been up for."""
-        await ctx.send(f'Uptime: **{self.get_bot_uptime()}**')
-    
-    @commands.command()
-    @commands.is_owner()
-    async def commandstats(self, ctx: commands.Context, user: typing.Optional[discord.Member]=None):
-        """
-        Owners only command.
-        """
-        self.update_guild_stats(ctx.guild.id)
-        command_list: dict = self.bot.db.stats_get_guild_info(ctx.guild.id)['users' if user else 'global']
-        
-        if not user:
-            command_list = [(command, uses) for command, uses in command_list.items()]
-        else:
-            command_list = [(command, uses) for command, uses in command_list[user.id].items()]
+        await ctx.send(f"Uptime: **{self.get_bot_uptime()}**")
 
-        formatter = CommandsStatsPageSource(command_list)
-        menu = MyMenuPages(formatter, delete_message_after=True)
-        await menu.start(ctx)
-
-    
     @commands.command()
     async def about(self, ctx: commands.Context):
         """Tells you information about the bot itself."""
 
         for guild_id in self.command_stats.keys():
-            self.update_guild_stats(guild_id)
+            await self.update_guild_stats(guild_id)
 
-        embed = discord.Embed()
-        embed.colour = discord.Colour.blurple()
+        embed = Embed()
+        embed.colour = self.bot.Botty_colour
 
-        embed.set_author(name=str(self.bot.owner), icon_url=self.bot.owner.display_avatar.url)
+        if self.bot.owner.display_avatar:
+            embed.set_author(name=str(self.bot.owner), icon_url=self.bot.owner.display_avatar.url)
+        else:
+            embed.set_author(name=str(self.bot.owner), icon_url=self.bot.owner.default_avatar)
+
 
         # statistics
         total_members = 0
@@ -152,16 +115,17 @@ class Stats(commands.Cog):
                 elif isinstance(channel, discord.VoiceChannel):
                     voice += 1
 
-        embed.add_field(name='Members', value=f'{total_members} total\n{total_unique} unique')
-        embed.add_field(name='Channels', value=f'{text + voice} total\n{text} text\n{voice} voice')
+        embed.add_field(name="Members", value=f"{total_members} total\n{total_unique} unique")
+        embed.add_field(name="Channels", value=f"{text + voice} total\n{text} text\n{voice} voice")
 
-        version = pkg_resources.get_distribution('discord.py').version
-        embed.add_field(name='Guilds', value=guilds)
-        embed.add_field(name='Commands Run', value=self.total_command_executions(ctx)+1)
-        embed.add_field(name='Uptime', value=self.get_bot_uptime(brief=True))
-        embed.set_footer(text=f'Made with discord.py v{version}', icon_url='http://i.imgur.com/5BFecvA.png')
+        version = pkg_resources.get_distribution("discord.py").version
+        embed.add_field(name="Guilds", value=guilds)
+        embed.add_field(name="Commands Run", value=(await self.total_command_executions(ctx)) + 1)
+        embed.add_field(name="Uptime", value=self.get_bot_uptime(brief=True))
+        embed.set_footer(text=f"Made with discord.py v{version}", icon_url="http://i.imgur.com/5BFecvA.png")
         embed.timestamp = discord.utils.utcnow()
         await ctx.send(embed=embed)
+
 
 async def setup(bot: Botty):
     await bot.add_cog(Stats(bot))

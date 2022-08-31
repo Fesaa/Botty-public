@@ -1,15 +1,14 @@
 import discord
 
-from discord.ext import commands
-from imports.functions import *
+from discord import Embed
 from random import choice
+from discord.ext import commands
 
-from cogs.ConfigHandler import get_prefix
 from Botty import Botty
+from utils.functions import allowed_word, time, get_word
 
 
 class WordSnake(commands.Cog):
-
     def __init__(self, bot: Botty) -> None:
         super().__init__()
         self.bot = bot
@@ -17,152 +16,224 @@ class WordSnake(commands.Cog):
     async def cog_check(self, ctx: commands.Context) -> bool:
         if isinstance(ctx.channel, discord.DMChannel) or ctx.author.bot:
             return False
-        return ctx.channel.id in self.bot.db.get_channel(ctx.guild.id, 'WordSnake')
+        return ctx.channel.id in self.bot.cache.get_channel_id(
+            ctx.guild.id, "wordsnake"
+        )
 
     def embed_logger(self, txt_log, channel_id, error_type=None):
-        if error_type == 'succ':
-            colour = 0x00a86b
-        elif error_type == 'error':
-            colour = 0xf05e23
-        elif error_type == 'fail':
-            colour = 0xb80f0a
-        elif error_type == 's':
-            colour = 0x1034a6
+        if error_type == "succ":
+            colour = 0x00A86B
+        elif error_type == "error":
+            colour = 0xF05E23
+        elif error_type == "fail":
+            colour = 0xB80F0A
+        elif error_type == "s":
+            colour = 0x1034A6
         else:
-            colour = 0xad3998
-        embed = discord.Embed(title='📖 Info 📖', colour=colour)
+            colour = 0xAD3998
+        embed = Embed(title="📖 Info 📖", colour=colour)
         embed.set_author(name=self.bot.user.name, icon_url=self.bot.user.avatar.url)
         embed.add_field(name="word_snake ", value=txt_log)
-        embed.set_footer(text=f'🆔 {channel_id} ⏳' + time())
+        embed.set_footer(text=f"🆔 {channel_id} ⏳" + time())
         return embed
-    
-    @commands.command(aliases=['s'], no_pm=True)
-    async def start(self, ctx: commands.Context, first_word: str=None):
+
+    def perms_check(ctx: commands.Context):
+        return (
+            ctx.author.id in ctx.bot.owner_ids
+            or ctx.channel.permissions_for(ctx.author).manage_messages is True
+        )
+
+    @commands.command(aliases=["s"], no_pm=True)
+    async def start(self, ctx: commands.Context, first_word: str = None):
         """
         Start a game of WordSnake, if no word is given. I will choose a word.
         """
-        data = self.bot.db.get_WordSnake_data(ctx.channel.id)
-    
+        data = await self.bot.PostgreSQL.get_game_data("wordsnake", ctx.channel.id)
+
+        if data is not None:
+            return await ctx.message.delete()
+
         if first_word is None:
             first_word = "5"
             while not allowed_word(first_word):
                 first_word = choice(get_word())[0]
-        
-        if data is None and allowed_word(first_word):
-            await ctx.send(f'The game has begun! \nFind a word that starts with **{first_word[-1].lower()}**.')
 
-            self.bot.db.WordSnake_game_switch(ctx.channel.id, True)
-            self.bot.db.update_WordSnake_data(ctx.channel.id, ctx.author.id, first_word, ctx.message.id, 0)
-            self.bot.db.allowed_mistakes(ctx.channel.id, self.bot.db.get_game_setting(ctx.guild.id, 'WS_wrong_guesses'))
-            self.bot.db.add_word('WordSnake', ctx.channel.id, first_word)
+        if not allowed_word(first_word):
+            return await ctx.send(
+                "This is not a word in the English language, please only use a-z and A-Z!"
+            )
 
-            for channel_id in self.bot.db.get_channel(ctx.guild.id, 'Log'):
-                await self.bot.get_channel(channel_id).send(embed=self.embed_logger(f'{ctx.author.name} started a game with word {first_word}.', ctx.channel.id, 's'))
-        
-        elif data is not None:
-            await ctx.message.delete()
-        else:
-            await ctx.send("This is not a word in the English language, please only use a-z and A-Z!")
-    
-    @commands.command(aliases=['c'], no_pm=True)
+        await self.bot.PostgreSQL.game_switch("wordsnake", ctx.channel.id, True)
+        await self.bot.PostgreSQL.update_WordSnake_data(
+            channel_id=ctx.channel.id,
+            last_user_id=ctx.author.id,
+            last_word=first_word,
+            msg_id=ctx.message.id,
+            count=0,
+        )
+        await self.bot.PostgreSQL.allowed_mistakes(
+            channel_id=ctx.channel.id,
+            allowed_mistakes=self.bot.cache.get_game_settings(
+                ctx.guild.id, "ws_wrong_guesses"
+            ),
+        )
+        await self.bot.PostgreSQL.add_word("wordsnake", ctx.channel.id, first_word)
+
+        return await ctx.send(
+            f"The game has begun! \nFind a word that starts with **{first_word[-1].lower()}**."  # type: ignore
+        )
+
+    @commands.command(aliases=["c"], no_pm=True)
     async def count(self, ctx: commands.Context):
         """
         Display your current count
         """
-        data = self.bot.db.get_WordSnake_data(ctx.channel.id)
+        data = await self.bot.PostgreSQL.get_game_data('wordsnake', ctx.channel.id)
         await ctx.message.delete()
-        if data is None:
-            await ctx.send(f'No game was running, start one with `{(await get_prefix(self.bot, ctx.message))[-1]}start <word*>`!')
-        else:
-            await ctx.send(f"You have been playing for **{data['count']}** words!")
-    
-    @commands.command(aliases=['rw'], no_pm=True)
+
+        if data:
+            return await ctx.send(
+                f"You have been playing for **{data['count']}** words!"
+            )
+
+        await ctx.send(
+            f"No game was running, start one with `{self.bot.cache.get_command_prefix(ctx.guild.id)}start <word*>`!"
+        )
+
+    @commands.command(aliases=["rw"], no_pm=True)
+    @commands.check(perms_check)
     async def resetwords(self, ctx: commands.Context):
         """
         Reset all used words
         """
-        self.bot.db.clear_words('WordSnake', ctx.channel.id)
+
+        await self.bot.PostgreSQL.clear_words("wordsnake", ctx.channel.id)
 
         await ctx.message.delete()
         await ctx.send("The used words have been reset")
 
-        for channel_id in self.bot.db.get_channel(ctx.guild.id, 'Log'):
-                await self.bot.get_channel(channel_id).send(embed=self.embed_logger(f' {ctx.author.name} reset the used words.', ctx.channel.id, 's'))
-    
+        for channel_id in self.bot.cache.get_channel_id(ctx.guild.id, "log"):
+            await self.bot.get_channel(channel_id).send(
+                embed=self.embed_logger(
+                    f" {ctx.author.name} reset the used words.", ctx.channel.id, "s"
+                )
+            )
+
     @commands.Cog.listener()
     async def on_message_delete(self, msg: discord.Message):
-        data = self.bot.db.get_WordSnake_data(msg.channel.id)
+        data = await self.bot.PostgreSQL.get_game_data("wordsnake", msg.channel.id)
 
-        if data:
-            if data['msg_id'] == msg.id:
-                await msg.channel.send(embed=discord.Embed(title=f"Warning! Deleted message by {msg.author.name}",description=f"The last word is: **{msg.content}**", colour=0xad3998))
-    
-                for channel_id in self.bot.db.get_channel(msg.guild.id, 'Log'):
-                    await self.bot.get_channel(channel_id).send(embed=self.embed_logger(f'{msg.author} deleted their msg, which was the last word.', msg.channel.id, 'error'))
-    
+        if not data:
+            return
+
+        if data["msg_id"] == msg.id:
+            await msg.channel.send(
+                embed=Embed(
+                    title=f"Warning! Deleted message by {msg.author.name}",
+                    description=f"The last word is: **{data['last_word']}**",
+                    colour=0xAD3998,
+                )
+            )
+
     @commands.Cog.listener()
     async def on_message_edit(self, msg1: discord.Message, msg2: discord.Message):
-        data = self.bot.db.get_WordSnake_data(msg1.channel.id)
+        data = await self.bot.PostgreSQL.get_game_data("wordsnake", msg1.channel.id)
 
-        if data:
-            if data['msg_id'] == msg1.id:
-                await msg1.channel.send(embed=discord.Embed(title=f"Warning! Edited message by {msg1.author.name}",description=f"The last word is: **{msg1.content}**", colour=0xad3998))
-    
-            for channel_id in self.bot.db.get_channel(msg1.guild.id, 'Log'):
-                await self.bot.get_channel(channel_id).send(embed=self.embed_logger(f'{msg1.author} edited their last msg, which was the last word.', msg1.channel.id,'error'))
-    
+        if not data:
+            return
+
+        if data["msg_id"] == msg1.id:
+            await msg1.channel.send(
+                embed=Embed(
+                    title=f"Warning! Edited message by {msg1.author.name}",
+                    description=f"The last word is: **{data['last_word']}**",
+                    colour=0xAD3998,
+                )
+            )
+
     @commands.Cog.listener()
     async def on_message(self, msg: discord.Message):
         if msg.author.bot:
             return
-        elif msg.channel.id in self.bot.db.get_channel(msg.guild.id, 'WordSnake'):
-            data = self.bot.db.get_WordSnake_data(msg.channel.id)
 
-            if data and not msg.content[0] in (await get_prefix(self.bot, msg)):
-                if data['last_user_id'] == msg.author.id:
-                    await msg.delete()
+        if not msg.guild:
+            return
 
-                elif not self.bot.db.check_used_word('WordSnake', msg.channel.id, msg.content):
-                    if allowed_word(msg.content):
-                        if msg.content[0].lower() == data['last_word'][-1].lower():
+        if msg.channel.id not in self.bot.cache.get_channel_id(msg.guild.id, "wordsnake"):
+            return
 
-                            self.bot.db.update_WordSnake_data(msg.channel.id, msg.author.id, msg.content, msg.id, data['count'] + 1)
-                            self.bot.db.allowed_mistakes(msg.channel.id, self.bot.db.get_game_setting(msg.guild.id, 'WS_wrong_guesses'))
-                            self.bot.db.add_word('WordSnake', msg.channel.id, msg.content)
-                            self.bot.db.update_lb('WordSnake', msg.channel.id, msg.author.id)
+        if msg.content.startswith(self.bot.cache.get_command_prefix(msg.guild.id)):
+            return
 
-                            await msg.add_reaction('✅')
-                            
-                        elif msg.content[0].lower() == data['last_word'][0].lower() and data['allowed_mistakes'] > 0:
+        data = await self.bot.PostgreSQL.get_game_data("wordsnake", msg.channel.id)
 
-                            self.bot.db.allowed_mistakes(msg.channel.id, data['allowed_mistakes'] - 1)
-                            await msg.delete()
+        if not data:
+            return
 
-                            for channel_id in self.bot.db.get_channel(msg.guild.id, 'Log'):
-                                await self.bot.get_channel(channel_id).send(embed=self.embed_logger(f'{msg.author} used an allowed mistakes point, {data["allowed_mistakes"] - 1} remaining.',
-                                msg.channel.id, 'error'))
-                        else:
+        if data["last_user_id"] == msg.author.id:
+            return await msg.delete()
 
-                            self.bot.db.WordSnake_game_switch(msg.channel.id, False)
+        if await self.bot.PostgreSQL.check_used_word("wordsnake", msg.channel.id, msg.content):
+            return await msg.delete()
 
-                            await msg.channel.send(f"Your worded started with **{msg.content[0].lower()}**, whilst it should have started with ** {data['last_word'][-1].lower()}**."
-                                                    f"\nYou managed to reach **{data['count']}** words this game! \nThe game has stopped, you can start a new one with"
-                                                    f"`{(await get_prefix(self.bot, msg))[-1]}start <word*>` and reset the words with `{(await get_prefix(self.bot, msg))[-1]}resetwords` if you'd like.")
-                            
-                            for channel_id in self.bot.db.get_channel(msg.guild.id, 'Log'):
-                                await self.bot.get_channel(channel_id).send(embed=self.embed_logger(f'{msg.author} failed and ended the game.', msg.channel.id, 'fail'))
-                    
-                    else:
-                        await msg.delete()
+        if not allowed_word(msg.content):
+            return await msg.delete()
 
-                        for channel_id in self.bot.db.get_channel(msg.guild.id, 'Log'):
-                            await self.bot.get_channel(channel_id).send(embed=self.embed_logger(f'{msg.author} submitted a word out of rule bounds - {msg.content}', msg.channel.id, 'fail'))
-                
-                else:
-                    await msg.delete()
+        if msg.content[0].lower() == data["last_word"][-1].lower():
 
-                    for channel_id in self.bot.db.get_channel(msg.guild.id, 'Log'):
-                        await self.bot.get_channel(channel_id).send(embed=self.embed_logger(f'{msg.author} submitted an used word.', msg.channel.id, 'error'))
+            await self.bot.PostgreSQL.update_WordSnake_data(
+                channel_id=msg.channel.id,
+                last_user_id=msg.author.id,
+                last_word=msg.content,
+                msg_id=msg.id,
+                count=data["count"] + 1,
+            )
+            await self.bot.PostgreSQL.allowed_mistakes(
+                channel_id=msg.channel.id,
+                allowed_mistakes=self.bot.cache.get_game_settings(
+                    msg.guild.id, "ws_wrong_guesses"
+                ),
+            )
+            await self.bot.PostgreSQL.add_word("wordsnake", msg.channel.id, msg.content)
+            await self.bot.PostgreSQL.update_lb(
+                "wordsnake", msg.channel.id, msg.author.id, msg.guild.id
+            )
+            await msg.add_reaction("✅")
+
+        elif (
+            msg.content[0].lower() == data["last_word"][0].lower()
+            and data["allowed_mistakes"] > 0
+        ):
+            await self.bot.PostgreSQL.allowed_mistakes(
+                channel_id=msg.channel.id, allowed_mistakes=data["allowed_mistakes"] - 1
+            )
+            await msg.delete()
+
+            for channel_id in (await self.bot.PostgreSQL.get_channel(msg.guild.id, "log")):
+                await self.bot.get_channel(channel_id).send(
+                    embed=self.embed_logger(
+                        f'{msg.author} used an allowed mistakes point, {data["allowed_mistakes"] - 1} remaining.',
+                        msg.channel.id,
+                        "error",
+                    )
+                )
+        else:
+            await self.bot.PostgreSQL.game_switch("wordsnake", msg.channel.id, False)
+
+            await msg.channel.send(
+                f"Your worded started with **{msg.content[0].lower()}**, whilst it should have started with ** {data['last_word'][-1].lower()}**."
+                f"\nYou managed to reach **{data['count']}** words this game! \nThe game has stopped, you can start a new one with"
+                f"`{(await self.bot.get_prefix(msg))[-1]}start <word*>` and reset the words with `{(await self.bot.get_prefix(msg))[-1]}resetwords` if you'd like."
+            )
+
+            for channel_id in (await self.bot.PostgreSQL.get_channel(msg.guild.id, "log")):
+                await self.bot.get_channel(channel_id).send(
+                    embed=self.embed_logger(
+                        f"{msg.author} failed and ended the game.",
+                        msg.channel.id,
+                        "fail",
+                    )
+                )
 
 
 async def setup(bot: Botty):

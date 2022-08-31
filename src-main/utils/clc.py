@@ -1,5 +1,6 @@
 from math import sqrt
 
+
 class Cubelvl:
     def __init__(self, level):
         self.level = level
@@ -12,13 +13,13 @@ class Cubelvl:
         return self.xp
 
     def win(self, mode):
-        if mode == 'ew':
+        if mode == "ew":
             return round(self.xp / 250)
-        if mode == 'sw':
+        if mode == "sw":
             return round(self.xp / 125)
-        if mode == 'li':
+        if mode == "li":
             return round(self.xp / 120)
-        if mode == 'mt':
+        if mode == "mt":
             return round(self.xp / 100)
 
     def levelafterxp(self, gainedxp):
@@ -26,12 +27,16 @@ class Cubelvl:
 
 
 def lvlxp(x):  # xp = total xp => level
-    return round(- 9 / 2 + 1 / 10 * sqrt(2025 + x) + 1)
+    return round(-9 / 2 + 1 / 10 * sqrt(2025 + x) + 1)
 
 
-def xpm(amountthanks, amountmulti):  # xp gained from amountmulti multipliers, amountthanks = #thanks
+def xpm(
+    amountthanks, amountmulti
+):  # xp gained from amountmulti multipliers, amountthanks = #thanks
     return round(amountmulti * amountthanks * 100)
 
 
-def m(xp, amountthank):  # Amount of multipliers needed for a certain amount of xp with amountthank /thanks
+def m(
+    xp, amountthank
+):  # Amount of multipliers needed for a certain amount of xp with amountthank /thanks
     return round(xp / (100 * amountthank))
