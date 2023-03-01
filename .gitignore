@@ -1,2 +1,9 @@
 .idea
 .DS_Store
+__pycache__
+_logs
+venv/
+*.toml
+*.swp
+.vscode
+

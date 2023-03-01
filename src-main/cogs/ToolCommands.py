@@ -61,17 +61,29 @@ class UrbanDictionaryPageSource(menus.ListPageSource):
 
 
 class ToolCommands(commands.Cog):
+    """
+    A few helpful commands for user information and scores!
+    """
     def __init__(self, bot: Botty) -> None:
         self.bot = bot
         super().__init__()
 
+    @property
+    def display_emoji(self) -> discord.PartialEmoji:
+        return discord.PartialEmoji(name='\U0001f6e0')
+
     @commands.command(aliases=["avt"], no_pm=True)
+    @commands.cooldown(10, 60, commands.BucketType.guild)
     async def avatar(self, ctx: commands.Context, user: discord.Member = None):
         """
-        A users avatar
+        Display a members avatar
         """
         if user is None:
             user = ctx.author
+
+        user = await self.bot.fetch_user(user.id)
+
+
         if not user.avatar:
             return await ctx.send("User has no avatar")
         embed = Embed(title=f"Avatar of {user}", color=0xAD3998)
@@ -83,13 +95,34 @@ class ToolCommands(commands.Cog):
         await ctx.send(embed=embed)
 
     @commands.command(no_pm=True)
+    @commands.cooldown(10, 60, commands.BucketType.guild)
+    async def banner(self, ctx: commands.Context, user: discord.Member = None):
+        """
+        Displays a members banner
+        """
+        if user is None:
+            user = ctx.author
+        
+        user = await self.bot.fetch_user(user.id)
+
+        if not user.banner:
+            return await ctx.send("User has no banner")
+        embed = Embed(title=f"Banner of {user}", color=0xAD3998)
+        embed.description = (
+            f"Links: \n [png]({str(user.banner.url).replace('webp', 'png')}) | [jpg]"
+            f"({str(user.banner.url).replace('webp', 'jpg')}) | [webp]({user.banner.url})"
+        )
+        embed.set_image(url=user.banner.url)
+        await ctx.send(embed=embed)
+
+    @commands.command(no_pm=True)
     async def info(
         self,
         ctx: commands.Context,
         user: typing.Union[discord.Member, discord.User] = None,
     ):
         """
-        Small embed with information about the Member.
+        Small embed with information about a user
         """
         user = user or ctx.author
         embed = Embed()
@@ -191,8 +224,8 @@ class ToolCommands(commands.Cog):
         game: str = None,
     ):
         """
-        Display the leaderboard for a game per channel, shorter: lb \n
-        Only calling lb will display the leaderboard for this channel you are in. This might cause some weird points if the channel was used for more than one game.
+        Display the scoreboard for a game per channel\n
+        Calling the scoreboard without any options cal display unwanted values. Be sure the specific what you are requesting. 
         """
         if not interaction.guild or not interaction.channel:
             return

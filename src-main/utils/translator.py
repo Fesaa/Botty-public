@@ -24,3 +24,4 @@ class BottyTranslator(discord.app_commands.Translator):
     
     def close(self) -> None:
         self.f.close()
+        del self.translations

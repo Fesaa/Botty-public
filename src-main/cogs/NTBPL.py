@@ -1,4 +1,5 @@
 import discord
+import asyncpg
 
 from discord import Embed
 from random import randint
@@ -9,8 +10,20 @@ from utils.functions import time, get_NTBPL_letters, allowed_word
 
 
 class Ntbpl(commands.Cog):
+    """
+    A Custom game!
+    I give you an amount of letters. And you send a word that contains these letters in the same order!
+    What does this emoji mean?
+    ✅: Your word was accepted
+    🔁: Somebody already used this word before you!"
+    "None": Word is not valid
+    """
     def __init__(self, bot: Botty) -> None:
         self.bot = bot
+
+    @property
+    def display_emoji(self) -> discord.PartialEmoji:
+        return discord.PartialEmoji(name='\U0001f4db')
 
     async def cog_check(self, ctx: commands.Context) -> bool:
         if isinstance(ctx.channel, discord.DMChannel) or ctx.author.bot:
@@ -42,6 +55,20 @@ class Ntbpl(commands.Cog):
             or ctx.channel.permissions_for(ctx.author).manage_messages is True
         )
 
+    async def _update_NTBPL_data(
+        self, *, channel_id: int, count: int, letters: str, last_user_id: int
+    ) -> None:
+        async with self.bot.pool.acquire() as con:
+            con: asyncpg.connection.Connection  # type: ignore
+            async with con.transaction():
+                await con.execute(
+                    "UPDATE ntbpl_game_data SET count = $1, letters = $2, last_user_id = $3 WHERE channel_id = $4;",
+                    count,
+                    letters,
+                    last_user_id,
+                    channel_id,
+                )
+
     @commands.command(aliases=["b"], no_pm=True)
     async def begin(self, ctx: commands.Context, count: int = randint(2, 5)):
         """
@@ -51,7 +78,7 @@ class Ntbpl(commands.Cog):
         new_letters = await get_NTBPL_letters(self.bot, count, ctx.channel.id)
         if await self.bot.PostgreSQL.get_game_data("ntbpl", ctx.channel.id) is None:
             await self.bot.PostgreSQL.game_switch("ntbpl", ctx.channel.id, True)
-        await self.bot.PostgreSQL.update_NTBPL_data(
+        await self._update_NTBPL_data(
             channel_id=ctx.channel.id,
             count=count,
             letters=new_letters,
@@ -68,7 +95,7 @@ class Ntbpl(commands.Cog):
     @commands.check(perms_check)
     async def clearwords(self, ctx: commands.Context):
         """
-        Clear all used words
+        Clear all used words in the channel
         """
         await self.bot.PostgreSQL.clear_words("ntbpl", ctx.channel.id)
         await ctx.message.delete()
@@ -96,7 +123,7 @@ class Ntbpl(commands.Cog):
             return
 
         data = await self.bot.PostgreSQL.get_game_data("ntbpl", msg.channel.id)
-        sub_word = msg.content.split(" ")[0]
+        sub_word = msg.content.split(" ")[0].lower()
 
         if not data:
             return
@@ -107,23 +134,25 @@ class Ntbpl(commands.Cog):
         if await self.bot.PostgreSQL.check_used_word("ntbpl", msg.channel.id, sub_word):
             return await msg.add_reaction("🔁")
 
-        if allowed_word(sub_word):
-            new_letters = await get_NTBPL_letters(
-                self.bot, data["count"], msg.channel.id
-            )
-            await self.bot.PostgreSQL.update_NTBPL_data(
-                channel_id=msg.channel.id,
-                count=data["count"],
-                letters=new_letters,
-                last_user_id=msg.author.id,
-            )
-            await self.bot.PostgreSQL.add_word("ntbpl", msg.channel.id, sub_word)
-            await self.bot.PostgreSQL.update_lb("ntbpl", msg.channel.id, msg.author.id, msg.guild.id)
-            await msg.add_reaction("✅")
-            await msg.channel.send(f"The new letters are **{new_letters}**")
+        if not allowed_word(sub_word):
+            return 
 
-        else:
-            return await msg.delete()
+        if not data["letters"] in sub_word:
+            return 
+
+        new_letters = await get_NTBPL_letters(
+            self.bot, data["count"], msg.channel.id
+        )
+        await self._update_NTBPL_data(
+            channel_id=msg.channel.id,
+            count=data["count"],
+            letters=new_letters,
+            last_user_id=msg.author.id,
+        )
+        await self.bot.PostgreSQL.add_word("ntbpl", msg.channel.id, sub_word)
+        await self.bot.PostgreSQL.update_lb("ntbpl", msg.channel.id, msg.author.id, msg.guild.id)
+        await msg.add_reaction("✅")
+        await msg.channel.send(f"The new letters are **{new_letters}**")
 
 
 async def setup(bot: Botty):

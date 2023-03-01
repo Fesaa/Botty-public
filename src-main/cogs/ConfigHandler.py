@@ -58,22 +58,22 @@ GAME_SETTINGS_OPTIONS = [
         ),
     ]
 
-GAME_SETTINGS_CHOICe = [
+GAME_SETTINGS_CHOICE = [
         discord.app_commands.Choice(
             name="Maximum amount of player displayed on a scoreboard (Default: 15, Max: 20)",
             value="max_lb_size",
         ),
         discord.app_commands.Choice(
             name="Maximum consecutive replies by the same player in HigherLower (Default: 3)",
-            value="HL_max_reply",
+            value="hl_max_reply",
         ),
         discord.app_commands.Choice(
             name="Maximum amount of tolerated wrong guesses in WordSnake (Default 1, Max: 5)",
-            value="WS_wrong_guesses",
+            value="ws_wrong_guesses",
         ),
         discord.app_commands.Choice(
             name="Maximum value of the number in HigherLower (Default: 1000)",
-            value="HL_max_number",
+            value="hl_max_number",
         ),
     ]
 
@@ -184,59 +184,39 @@ class GameSettingsModal(discord.ui.Modal):
     def __init__(
         self,
         bot: Botty,
-        setting: str,
         *,
-        label: str,
-        placeholder: str,
-        title: str,
+        placeholders: typing.Tuple[str, ...],
         timeout: typing.Optional[float] = None,
     ) -> None:
 
         self.bot = bot
-        self.setting = setting
-        super().__init__(title=title, timeout=timeout)
-        self.add_item(discord.ui.TextInput(label=label, style=discord.TextStyle.short, placeholder=placeholder, required=True))
+        super().__init__(title="Change your game settings", timeout=timeout)
 
-    async def on_submit(self, interaction: discord.Interaction) -> None:
-        value: str = self.children[0].value  # type: ignore
-
-        if value.isdigit():
-            converted_value = abs(int(value))
-        else:
-            return await interaction.response.send_message("Please input a whole number.", ephemeral=True)
-
-        await update_game_setting(interaction, guild_id=interaction.guild_id, game_setting=self.setting, value=converted_value, bot=interaction.client)
-
-    async def on_error(self, interaction: discord.Interaction, error: Exception) -> None:  # type: ignore
-        return await interaction.response.send_message(f"An error occurred, please try again. If the issue isn't resolving, please contact {self.bot.owner}",ephemeral=True)
-
-
-class GameSettingSelect(discord.ui.Select):
-    def __init__(self, bot: Botty) -> None:
-        self.bot = bot
-
-        options = GAME_SETTINGS_OPTIONS
-
-        super().__init__(placeholder="Choose the game setting to modify", options=options)
-
-    async def callback(self, interaction: discord.Interaction) -> typing.Any:
-        label = {
+        labels = {
             "max_lb_size": "Maximum leaderboard size",
             "hl_max_reply": "Maximum HigherLower replies",
             "ws_wrong_guesses": "Maximum WordSnake mistakes",
             "hl_max_number": "Maximum HigherLower number",
-        }[self.values[0]]
-        placeholder = str(self.bot.cache.get_game_settings(interaction.guild_id, self.values[0]))  # type: ignore
-        return await interaction.response.send_modal(
-            GameSettingsModal(self.bot, self.values[0], title="Choose your new setting", label=label,
-                placeholder=placeholder))
+        }
+
+        for setting_type, label, placeholder in zip(labels.keys(), labels.values(), placeholders):
+            self.add_item(discord.ui.TextInput(label=label, style=discord.TextStyle.short, placeholder=placeholder, required=False, custom_id=setting_type))
 
 
-class GameSettingsView(discord.ui.View):
-    def __init__(self, bot: Botty, *, timeout: typing.Optional[float] = 180):
-        self.bot = bot
-        super().__init__(timeout=timeout)
-        self.add_item(GameSettingSelect(self.bot))
+    async def on_submit(self, interaction: discord.Interaction) -> None:
+        values = {
+                child.custom_id: int(child.value) if child.value.isdigit() else None  # type: ignore
+                for child in self.children 
+                if isinstance(child, discord.ui.TextInput)
+                }
+
+        for setting, value in values.items():
+            print(setting, value)
+            if value:
+                await update_game_setting(interaction, guild_id=interaction.guild_id, game_setting=setting, value=value, bot=interaction.client)
+
+    async def on_error(self, interaction: discord.Interaction, error: Exception) -> None:  # type: ignore
+        return await interaction.response.send_message(f"An error occurred, please try again. If the issue isn't resolving, please contact {self.bot.owner}",ephemeral=True)
 
 
 class PrefixConfigView(discord.ui.Modal):
@@ -280,11 +260,8 @@ class ConfigView(discord.ui.View):
         row=0,
     )
     async def _game_setting_button(self, interaction: discord.Interaction, button):
-        await interaction.response.send_message(
-            "Select one of the available settings, to modify them.",
-            view=GameSettingsView(self.bot),
-            ephemeral=True,
-        )
+        placeholders = tuple(str(v) for v in self.bot.cache.get_all_games_settings(interaction.guild.id).values())  # type: ignore
+        return await interaction.response.send_modal(GameSettingsModal(bot=self.bot, placeholders=placeholders))
 
     @discord.ui.button(
         label="Channels", style=discord.ButtonStyle.secondary, emoji="\U0001f310", row=0
@@ -324,10 +301,18 @@ class ChannelPageSource(menus.ListPageSource):
 
 
 class ConfigHandler(commands.Cog):
+    """
+    Configure all modular parts of Botty!
+    Slash command permissions have to be set in the integration tab of your server.
+    """
 
     def __init__(self, bot: Botty) -> None:
         self.bot = bot
         super().__init__()
+
+    @property
+    def display_emoji(self) -> discord.PartialEmoji:
+        return discord.PartialEmoji(name='\U00002699')
 
     @commands.Cog.listener()
     async def on_guild_join(self, guild: discord.Guild):
@@ -345,13 +330,13 @@ class ConfigHandler(commands.Cog):
     async def on_guild_remove(self, guild: discord.Guild):
         await self.bot.PostgreSQL.remove_guild(guild.id)
 
-    @commands.command()
+    @commands.command(hidden=True)
     @commands.is_owner()
     async def close(self, ctx: commands.Context):
         await asyncio.wait_for(self.bot.pool.close(), 60)
         await self.bot.close()
 
-    @commands.command()
+    @commands.command(hidden=True)
     @commands.is_owner()
     async def sync(
         self,
@@ -391,7 +376,7 @@ class ConfigHandler(commands.Cog):
 
         await ctx.send(f"Synced the tree to {ret}/{len(guilds)}.")
 
-    @commands.command(name="reload",)
+    @commands.command(name="reload",hidden=True)
     @commands.is_owner()
     async def _reload(self, ctx: commands.Context, *names: str):
         """
@@ -463,7 +448,7 @@ class ConfigHandler(commands.Cog):
         else:
             await ctx.send("\N{OK HAND SIGN}")
 
-    @commands.command()
+    @commands.command(hidden=True)
     @commands.is_owner()
     async def load(self, ctx: commands.Context, *, module: str):
         """Loads a module."""
@@ -474,7 +459,7 @@ class ConfigHandler(commands.Cog):
         else:
             await ctx.send("\N{OK HAND SIGN}")
 
-    @commands.command()
+    @commands.command(hidden=True)
     @commands.is_owner()
     async def unload(self, ctx: commands.Context, *, module: str):
         """Unloads a module."""
@@ -485,9 +470,16 @@ class ConfigHandler(commands.Cog):
         else:
             await ctx.send("\N{OK HAND SIGN}")
 
+    @commands.command(hidden=True)
+    @commands.is_owner()
+    async def list_cogs(self, ctx: commands.Context):
+        """Lists all cogs."""
+        await ctx.send(", ".join(self.bot.cogs))
+
     @commands.hybrid_group(name="config", description="Config commands.")
     @discord.app_commands.default_permissions(administrator=True)
     @discord.app_commands.guild_only()
+    @commands.has_guild_permissions(administrator=True)
     async def _config(self, ctx: commands.Context):
         """
         Configure various attributes, for more info use !help config.
@@ -508,10 +500,16 @@ class ConfigHandler(commands.Cog):
 
         new_prefix = new_prefix or self.bot.config["DISCORD"]["DEFAULT_PREFIX"]
         await update_prefix(ctx, guild_id=ctx.guild.id, new_prefix=new_prefix, bot=self.bot)
+    
+    @commands.command(name="prefix")
+    async def prefix(self, ctx: commands.Context):
+        return await ctx.reply(f"My current prefix is {self.bot.cache.get_command_prefix(ctx.guild.id)}")
+
 
     @_config.group( name="channels", description="Update and view used channels per type")
     @discord.app_commands.default_permissions(administrator=True)
     @discord.app_commands.guild_only()
+    @commands.has_guild_permissions(administrator=True)
     async def _channels(self, ctx: commands.Context):
         """
         Remove, Add or List all channels where one of my features works.
@@ -540,6 +538,7 @@ class ConfigHandler(commands.Cog):
     @_channels.command(name="remove", description="Remove a channel of use")
     @discord.app_commands.autocomplete(snowflake=snowflake_autocomplete)
     @discord.app_commands.choices(channel_type=CHANNEL_TYPES_CHOICE)
+    @commands.has_guild_permissions(administrator=True)
     async def _remove(self, ctx: commands.Context, channel_type: str, snowflake: str):
         """
         Remove a channel for use.
@@ -559,6 +558,7 @@ class ConfigHandler(commands.Cog):
 
     @_channels.command(name="add", description="Add a channel for use")
     @discord.app_commands.choices(channel_type=CHANNEL_TYPES_CHOICE)
+    @commands.has_guild_permissions(administrator=True)
     async def _add(self, ctx: commands.Context, channel_type: str, snowflake: discord.TextChannel):
         """
         Add a channel for use.
@@ -570,6 +570,7 @@ class ConfigHandler(commands.Cog):
 
     @_channels.command( name="list", description="Receive a list with all channels in use")
     @discord.app_commands.choices(channel_type=CHANNEL_TYPES_CHOICE)
+    @commands.has_guild_permissions(administrator=True)
     async def _list(self, ctx: commands.Context, channel_type: str):
         """
         List channels. If more than 10 in use, only 10 will be displayed.
@@ -591,19 +592,21 @@ class ConfigHandler(commands.Cog):
             pass
 
     @_config.command(name="game_settings", description="Change the settings of games")
-    @discord.app_commands.choices(game_setting=GAME_SETTINGS_CHOICe)
+    @discord.app_commands.choices(game_setting=GAME_SETTINGS_CHOICE)
+    @commands.has_guild_permissions(administrator=True)
     async def _game_settings(self, ctx: commands.Context, game_setting: str, value: int):
         """
         Change game settings. These will be used in all active channels.
         """
 
-        if game_setting not in ("max_lb_size", "HL_max_reply", "WS_wrong_guesses", "HL_max_number"):
+        if game_setting not in ("max_lb_size", "hl_max_reply", "ws_wrong_guesses", "hl_max_number"):
             return await ctx.send("This is not a valid setting. Feel free to use the help command if needed!", ephemeral=True,)
 
         value = abs(value)
         await update_game_setting(ctx, guild_id=ctx.guild.id, game_setting=game_setting, value=value, bot=self.bot)
 
     @_config.command(name="interactive", description="Interactive menu to change config options")
+    @commands.has_guild_permissions(administrator=True)
     async def _interactive(self, ctx: commands.Context):
         """
         Interactive menu to change config options. Makes use of Modals, Buttons and SelectMenus. As alternative to the slash commands.

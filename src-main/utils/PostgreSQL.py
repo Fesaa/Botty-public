@@ -140,7 +140,7 @@ class PostgreSQL:
             con: asyncpg.connection.Connection  # type: ignore
             async with con.transaction():
                 await con.execute(
-                    "INSERT INTO usedwords (game, channel_id, word) VALUES ($1, $2, $3);",
+                    "INSERT INTO usedwords (game, channel_id, word) VALUES ($1, $2, LOWER($3));",
                     game,
                     channel_id,
                     word,
@@ -151,7 +151,7 @@ class PostgreSQL:
             con: asyncpg.connection.Connection  # type: ignore
             async with con.transaction():
                 await con.execute(
-                    "DELETE FROM usedwords WHERE game = $1 AND channel_id = $2",
+                    "DELETE FROM usedwords WHERE game = $1 AND channel_id = $2;",
                     game,
                     channel_id,
                 )
@@ -160,7 +160,7 @@ class PostgreSQL:
         async with self.pool.acquire() as con:
             con: asyncpg.connection.Connection  # type: ignore
             row = await con.fetchrow(
-                "SELECT word FROM usedwords WHERE game = $1 AND channel_id = $2 AND word = $3",
+                "SELECT word FROM usedwords WHERE game = $1 AND channel_id = $2 AND LOWER(word) = LOWER($3);",
                 game,
                 channel_id,
                 word,
@@ -278,199 +278,3 @@ class PostgreSQL:
                     f"INSERT INTO {game}_game_data (channel_id) VALUES ($1);",
                     channel_id,
                 )
-
-    # ========================================================================================
-    # WordSnake
-
-    async def update_WordSnake_data(
-        self,
-        *,
-        channel_id: int,
-        last_user_id: int,
-        last_word: str,
-        msg_id: int,
-        count: int,
-    ) -> None:
-        async with self.pool.acquire() as con:
-            con: asyncpg.connection.Connection  # type: ignore
-            async with con.transaction():
-                await con.execute(
-                    "UPDATE wordsnake_game_data SET last_user_id = $1, last_word = $2, msg_id = $3, count = $4 WHERE channel_id = $5;",
-                    last_user_id,
-                    last_word,
-                    msg_id,
-                    count,
-                    channel_id,
-                )
-
-    async def allowed_mistakes(self, *, channel_id: int, allowed_mistakes: int) -> None:
-        async with self.pool.acquire() as con:
-            con: asyncpg.connection.Connection  # type: ignore
-            async with con.transaction():
-                await con.execute(
-                    "UPDATE wordsnake_game_data SET allowed_mistakes = $1 WHERE channel_id = $2;",
-                    allowed_mistakes,
-                    channel_id,
-                )
-
-    # ========================================================================================
-    # NTBPL
-
-    async def update_NTBPL_data(
-        self, *, channel_id: int, count: int, letters: str, last_user_id: int
-    ) -> None:
-        async with self.pool.acquire() as con:
-            con: asyncpg.connection.Connection  # type: ignore
-            async with con.transaction():
-                await con.execute(
-                    "UPDATE ntbpl_game_data SET count = $1, letters = $2, last_user_id = $3 WHERE channel_id = $4;",
-                    count,
-                    letters,
-                    last_user_id,
-                    channel_id,
-                )
-
-    # ========================================================================================
-    # Tag
-
-    async def add_tag(self, guild_id: int, owner_id: int, tag: str, desc: str) -> None:
-        async with self.pool.acquire() as con:
-            con: asyncpg.connection.Connection  # type: ignore
-            async with con.transaction():
-                await con.execute(
-                    "INSERT INTO tag (guild_id, tag, description, owner_id) VALUES ($1, $2, $3, $4);",
-                    guild_id,
-                    tag,
-                    desc,
-                    owner_id,
-                )
-
-    async def update_tag(self, guild_id: int, tag: str, desc: str) -> None:
-        async with self.pool.acquire() as con:
-            con: asyncpg.connection.Connection  # type: ignore
-            async with con.transaction():
-                await con.execute(
-                    "UPDATE tag SET description = $1 WHERE (guild_id = $2 OR guild_id = $3) AND tag = $4;",
-                    desc,
-                    guild_id,
-                    000000000000000000,
-                    tag,
-                )
-
-    async def delete_tag(self, guild_id: int, tag: str) -> None:
-        async with self.pool.acquire() as con:
-            con: asyncpg.connection.Connection  # type: ignore
-            async with con.transaction():
-                await con.execute(
-                    "DELETE FROM tag WHERE guild_id = $1 AND tag = $2", guild_id, tag
-                )
-
-    async def get_tag(
-        self, guild_id: int, tag: str, search_global: bool = True
-    ) -> typing.Optional[asyncpg.Record]:
-        async with self.pool.acquire() as con:
-            con: asyncpg.connection.Connection  # type: ignore
-            fetch_query = "SELECT * FROM tag WHERE "
-
-            if search_global:
-                fetch_query += "(guild_id = $1 OR guild_id = '000000000000000000') "
-            else:
-                fetch_query += "guild_id = $1 "
-
-            fetch_query += "AND tag = $2"
-            return await con.fetchrow(fetch_query, guild_id, tag)
-
-    # ========================================================================================
-    # Stats
-
-    async def stats_get_guild_info(self, guild_id: int) -> typing.Optional[dict]:
-        async with self.pool.acquire() as con:
-            con: asyncpg.connection.Connection  # type: ignore
-            data = await con.fetch("SELECT * FROM stats WHERE guild_id = $1;", guild_id)
-
-            if not data:
-                return {"global": {}, "users": {}}
-
-            d_user: dict = {}
-            d_global: dict = {}
-            for entry in data:
-                user_id, uses, command_name = (
-                    entry["user_id"],
-                    entry["uses"],
-                    entry["command"],
-                )
-                if command_name in d_global:
-                    d_global[command_name] += uses
-                else:
-                    d_global[command_name] = uses
-
-                if user_id not in d_user:
-                    d_user[user_id] = {}
-
-                if command_name in d_user[user_id]:
-                    d_user[user_id][command_name] += uses
-                else:
-                    d_user[user_id][command_name] = uses
-
-            return {"global": d_global, "users": d_user}
-
-    async def stats_update_guild_info(self, guild_id: int, data: dict) -> None:
-
-        if data:
-            async with self.pool.acquire() as con:
-                con: asyncpg.connection.Connection  # type: ignore
-                async with con.transaction():
-                    update_query = (
-                        "INSERT INTO stats (guild_id, user_id, uses, command) VALUES "
-                    )
-
-                    for user_id, command_data in data.items():
-                        for command, uses in command_data.items():
-                            update_query += f"""('{guild_id}', '{user_id}', '{uses}', '{command}'),"""
-
-                    update_query = (
-                        update_query[:-1]
-                        + "ON CONFLICT (guild_id, user_id, command) DO UPDATE SET uses = excluded.uses;"
-                    )
-
-                    await con.execute(update_query)
-
-    # ========================================================================================
-    # Cube Counter Tasks
-
-    async def get_next_task(self) -> typing.Optional[asyncpg.Record]:
-        async with self.pool.acquire() as con:
-            con: asyncpg.connection.Connection  # type: ignore
-            return await con.fetchrow(
-                "SELECT * FROM cc_tasks ORDER BY date ASC LIMIT 1;"
-            )
-
-    async def check_has_task(self, user_id: int) -> bool:
-        async with self.pool.acquire() as con:
-            con: asyncpg.connection.Connection  # type: ignore
-            data = await con.fetchrow(
-                "SELECT * FROM cc_tasks WHERE user_id = $1;", user_id
-            )
-            if data:
-                return True
-            return False
-
-    async def add_task(
-        self, channel_id: int, user_id: int, jsonn: dict, date: str
-    ) -> None:
-        async with self.pool.acquire() as con:
-            con: asyncpg.connection.Connection  # type: ignore
-            async with con.transaction():
-                await con.execute(
-                    "INSERT INTO cc_tasks (channel_id, user_id, json, date) VALUES ($1, $2, $3, $4);",
-                    channel_id,
-                    user_id,
-                    jsonn,
-                    date,
-                )
-
-    async def remove_task(self, user_id: int) -> None:
-        async with self.pool.acquire() as con:
-            con: asyncpg.connection.Connection  # type: ignore
-            async with con.transaction():
-                await con.execute("DELETE FROM cc_tasks WHERE user_id = $1;", user_id)

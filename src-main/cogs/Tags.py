@@ -1,8 +1,8 @@
-import asyncio
 import typing
+import asyncpg
+import asyncio
 import discord
 
-from discord import Embed
 from discord.ext import commands
 
 from Botty import Botty
@@ -31,52 +31,22 @@ class TagName(commands.clean_content):
 
         return converted if not self.lower else lower
 
-class ConfirmationView(discord.ui.View):
-    def __init__(
-        self,
-        bot: Botty,
-        guild_id: int,
-        tag: str,
-        desc: str,
-        *,
-        timeout: typing.Optional[float] = 180,
-    ):
-        self.bot = bot
-        self.guild_id = guild_id
-        self.tag = tag
-        self.desc = desc
-        super().__init__(timeout=timeout)
-
-    @discord.ui.button(label="Confirm", style=discord.ButtonStyle.green)
-    async def _confirm(
-        self, interaction: discord.Interaction, button: discord.ui.Button
-    ):
-        await self.bot.PostgreSQL.update_tag(self.guild_id, self.tag, self.desc)
-        if interaction.message:
-            await interaction.message.delete()
-        await interaction.response.send_message(
-            embed=Embed(
-                title=f'Added "{self.tag}"!', description=self.desc, colour=0xAD3998
-            ),
-            ephemeral=True,
-        )
-
-    @discord.ui.button(label="Deny", style=discord.ButtonStyle.red)
-    async def _deny(self, interaction: discord.Interaction, button: discord.ui.Button):
-        if interaction.message:
-            await interaction.message.delete()
-        await interaction.response.send_message(
-            f"{self.tag} will not be added.", ephemeral=True
-        )
-
 
 class Tags(commands.Cog):
+    """
+    A tag system; add, edit and delete tags to your liking!
+    No need to remember common phrases!
+    """
     def __init__(self, bot: Botty) -> None:
         self.bot = bot
         super().__init__()
 
         self._tags_being_made: typing.Dict[int, typing.List[str]] = {}
-    
+
+    @property
+    def display_emoji(self) -> discord.PartialEmoji:
+        return discord.PartialEmoji(name='\U0001f250')
+
     def tag_is_being_made(self, guild_id: int, name: str) -> bool:
         if tags := self._tags_being_made.get(guild_id, None):
             return name in tags
@@ -97,6 +67,60 @@ class Tags(commands.Cog):
             else:
                 self._tags_being_made.pop(guild_id)
 
+    async def _add_tag(self, guild_id: int, owner_id: int, tag: str, desc: str) -> None:
+        async with self.bot.pool.acquire() as con:
+            con: asyncpg.connection.Connection  # type: ignore
+            async with con.transaction():
+                await con.execute(
+                    "INSERT INTO tag (guild_id, tag, description, owner_id) VALUES ($1, LOWER($2), $3, $4);",
+                    guild_id,
+                    tag,
+                    desc,
+                    owner_id,
+                )
+
+    async def _update_tag(self, guild_id: int, tag: str, desc: str) -> None:
+        async with self.bot.pool.acquire() as con:
+            con: asyncpg.connection.Connection  # type: ignore
+            async with con.transaction():
+                await con.execute(
+                    "UPDATE tag SET description = $1 WHERE (guild_id = $2 OR guild_id = $3) AND tag = $4;",
+                    desc,
+                    guild_id,
+                    000000000000000000,
+                    tag,
+                )
+
+    async def _delete_tag(self, guild_id: int, tag: str) -> None:
+        async with self.bot.pool.acquire() as con:
+            con: asyncpg.connection.Connection  # type: ignore
+            async with con.transaction():
+                await con.execute(
+                    "DELETE FROM tag WHERE guild_id = $1 AND tag = $2", guild_id, tag
+                )
+    
+    async def _get_tag_suggestions(self, guild_id: int, tag: str) -> typing.List[typing.Optional[str]]:
+        async with self.bot.pool.acquire() as con:
+            con: asyncpg.connection.Connection  # type: ignore
+            query = "SELECT tag.tag FROM tag WHERE guild_id = $1 ORDER BY similarity(tag.tag, $2);"
+            tags = await con.fetch(query, guild_id, tag)
+            return [tag["tag"] for tag in tags[:20]]
+
+    async def _get_tag(
+        self, guild_id: int, tag: str, search_global: bool = True
+    ) -> typing.Optional[asyncpg.Record]:
+        async with self.bot.pool.acquire() as con:
+            con: asyncpg.connection.Connection  # type: ignore
+            fetch_query = "SELECT * FROM tag WHERE "
+
+            if search_global:
+                fetch_query += "(guild_id = $1 OR guild_id = '000000000000000000') "
+            else:
+                fetch_query += "guild_id = $1 "
+
+            fetch_query += "AND tag = LOWER($2)"
+            return await con.fetchrow(fetch_query, guild_id, tag)
+
     @commands.group(name="tag", invoke_without_command=True)
     async def _tag(self, ctx: commands.Context, *tag_tuple: str):
         """
@@ -105,12 +129,12 @@ class Tags(commands.Cog):
         for the tag requested.
         """
         tag = " ".join(tag_tuple).lower()
-        data = await self.bot.PostgreSQL.get_tag(ctx.guild.id, tag)
+        data = await self._get_tag(ctx.guild.id, tag)
 
         if data:
             return await ctx.send(data["description"], reference=ctx.message.reference)
 
-        suggestion_tags = self.bot.cache.get_tag_suggestions(tag, ctx.guild.id)
+        suggestion_tags = await self._get_tag_suggestions(ctx.guild.id, tag)
         if suggestion_tags:
             sug = "\n• ".join(suggestion_tags)[:500]
             return await ctx.send(f"Could not find this tag, did you mean\n• {sug}")
@@ -135,27 +159,16 @@ class Tags(commands.Cog):
             guild_id = ctx.guild.id
 
         tag = tag.lower()
-        check = self.bot.cache.check_tag(guild_id, tag, ctx.author.id)
+        tag_check = await self._get_tag(guild_id, tag, guild_id == 0)
 
         if len(desc) > 2000:
             return await ctx.send("Tag content is a maximum of 2000 characters. \U0001f615")
 
-        if check[0]:
-            old_tag = await self.bot.PostgreSQL.get_tag(guild_id, tag)
+        if tag_check:
+            return await ctx.send("Tag already exists.")
 
-            if old_tag["owner_id"] != ctx.author.id:
-                return await ctx.send(f"You cannot overwrite {self.bot.get_user(old_tag['owner_id'])}'s tag.")
-
-            e = Embed(title=f"Confirmation!", colour=0xAD3998)
-            e.add_field(name="Old:", value=old_tag["description"][:1000] + "...")
-            e.add_field(name="New:", value=desc[:1000] + "...")
-
-            return await ctx.send(
-                embed=e, view=ConfirmationView(self.bot, guild_id, tag, desc)
-            )
-
-        self.bot.cache.add_tag(guild_id, tag, ctx.author.id)
-        await self.bot.PostgreSQL.add_tag(guild_id, ctx.author.id, tag, desc)
+        print(guild_id, ctx.author.id, tag, desc)
+        await self._add_tag(guild_id, ctx.author.id, tag, desc)
         await ctx.send("\N{OK HAND SIGN}")
 
     @_tag.command(name="delete")
@@ -175,20 +188,23 @@ class Tags(commands.Cog):
             guild_id = ctx.guild.id
 
         tag = " ".join(tag_tuple).lower()
-        check = self.bot.cache.check_tag(guild_id, tag, ctx.author.id)
+        tag_check = await self._get_tag(guild_id, tag, guild_id == 0)
 
-        if not check[1] and not ctx.author.guild_permissions.manage_channels:
+        if not tag_check:
+            suggestion_tags = await self._get_tag_suggestions(ctx.guild.id, tag)
+            if suggestion_tags:
+                sug = "\n• ".join(suggestion_tags)[:500]
+                return await ctx.send(f"Could not find this tag, did you mean\n• {sug}")
+            return
+
+
+        if tag_check.get("owner_id", None) != ctx.author.id and not ctx.author.guild_permissions.manage_channels:
             return await ctx.send('You need "Manage Channels" permissions to delete other users tags.')
 
-        if check[0]:
-            self.bot.cache.remove_tag(guild_id, tag)
-            await self.bot.PostgreSQL.delete_tag(guild_id, tag)
-            return await ctx.send("\N{OK HAND SIGN}")
+        await self._delete_tag(guild_id, tag)
+        return await ctx.send("\N{OK HAND SIGN}")
 
-        suggestion_tags = self.bot.cache.get_tag_suggestions(tag)
-        if suggestion_tags:
-            sug = "\n• ".join(suggestion_tags)[:500]
-            return await ctx.send(f"Could not find this tag, did you mean\n• {sug}")
+        
 
     @_tag.command(name="edit")
     async def _edit(
@@ -209,23 +225,24 @@ class Tags(commands.Cog):
             guild_id = ctx.guild.id
 
         tag = tag.lower()
-        check = self.bot.cache.check_tag(guild_id, tag, ctx.author.id)
+        tag_check = await self._get_tag(guild_id, tag, guild_id == 0)
 
-        if not check[1] and not ctx.author.guild_permissions.manage_channels:
+        if not tag_check:
+            suggestion_tags = await self._get_tag_suggestions(ctx.guild.id, tag)
+            if suggestion_tags:
+                sug = "\n• ".join(suggestion_tags)[:500]
+                return await ctx.send(f"Could not find this tag, did you mean\n• {sug}")
+            return
+
+        if tag_check.get("owner_id", None) != ctx.author.id and not ctx.author.guild_permissions.manage_channels:
             return await ctx.send('You need "Manage Channels" permissions to edit other users tags.')
     
         if len(desc) > 2000:
             return await ctx.send("Tag content is a maximum of 2000 characters. \U0001f615")
 
-        if check[0]:
-            await self.bot.PostgreSQL.update_tag(guild_id, tag, desc)
-            return await ctx.send("\N{OK HAND SIGN}")
+        await self._update_tag(guild_id, tag, desc)
+        return await ctx.send("\N{OK HAND SIGN}")
 
-        suggestion_tags = self.bot.cache.get_tag_suggestions(tag)
-        if suggestion_tags:
-            sug = "\n• ".join(suggestion_tags)[:500]
-            return await ctx.send(f"Could not find this tag, did you mean\n• {sug}")
-        
     @_tag.command(name='make')
     async def _make(self, ctx: commands.Context):
         """Step by step guide to make a tag. Takes no arguments.
@@ -234,7 +251,7 @@ class Tags(commands.Cog):
         original = ctx.message
         converter = TagName(lower=True)
 
-        await ctx.send("Hi \U0001f603, what would like the tag's name to be?")
+        await ctx.send("Hi \U0001f603, what would you like the tag's name to be?")
 
         def check(m: discord.Message) -> bool:
             return m.channel == ctx.channel and m.author == ctx.author
@@ -255,7 +272,7 @@ class Tags(commands.Cog):
         if self.tag_is_being_made(ctx.guild.id, name):
             return await ctx.send(f'Sorry. This tag is currently being made by someone. Redo the command "{ctx.prefix}tag make" to retry.')
 
-        exists, is_owner = self.bot.cache.check_tag(ctx.guild.id, name, ctx.author.id)
+        exists = await self._get_tag(ctx.guild.id, name, False)
 
         if exists:
             return await ctx.send(f'Sorry. A tag with that name already exists. Redo the command "{ctx.prefix}tag make" to retry.')
@@ -283,9 +300,7 @@ class Tags(commands.Cog):
         if len(clean_content) > 2000:
             return await ctx.send("Tag content is a maximum of 2000 characters. \U0001f615")
 
-    
-        self.bot.cache.add_tag(ctx.guild.id, name, ctx.author.id)
-        await self.bot.PostgreSQL.add_tag(ctx.guild.id, ctx.author.id, name, clean_content)
+        await self._add_tag(ctx.guild.id, ctx.author.id, name, clean_content)
         await ctx.send("\N{OK HAND SIGN}")
 
 async def setup(bot: Botty):

@@ -2,109 +2,17 @@ import typing
 import asyncio
 import discord
 
-from discord import Embed
 from discord.ext import commands
 from discord.ui import View, Select, button, TextInput, Modal
 
 from Botty import Botty
-from BottyCache import HangManDict
 from utils.functions import get_HangMan_word, time
 
-
-
-HANGMANPICS = [
-    "https://media.discordapp.net/attachments/869315104271904768/874025738238562344/01.png",
-    "https://media.discordapp.net/attachments/869315104271904768/874025739098419300/02.png",
-    "https://media.discordapp.net/attachments/869315104271904768/874025741354934272/04.png",
-    "https://media.discordapp.net/attachments/869315104271904768/874025742797783150/05.png",
-    "https://media.discordapp.net/attachments/869315104271904768/874025743678586960/06.png",
-    "https://media.discordapp.net/attachments/869315104271904768/874025745524088843/07.png",
-    "https://media.discordapp.net/attachments/869315104271904768/874025746828509204/08.png",
-    "https://media.discordapp.net/attachments/869315104271904768/874025747881275422/09.png",
-]
-
-def winner_embed(data: HangManDict) -> Embed:
-    players = [int(i) for i in data["players"].split(",")]
-    e = Embed(
-            title="Winner Winner Chicken Dinner",
-            description=f"The word you were looking for is **{data['word']}**, congratulations!\n{','.join(f'<@{user_id}>' for user_id in players)}",
-            color=0xAD3998,
-        )
-    e.add_field(name="Statistics", value=f"{len(data['used_letters']) + 1} guesses where used before the word was found\n"
-                                            f"It took you {round(((discord.utils.utcnow() - data['start_time']).total_seconds()/60))} minute(s) to find the word.")
-    return e
-
-def hangman_str(word: str, letters: typing.List[str]) -> typing.Tuple[str, int, bool]:
-    hg_str = ""
-    wrong_letters = 0
-    for letter in word.lower():
-        if letter in letters:
-            hg_str += " " + letter + " "
-        else:
-            hg_str += r" \_ "
-    for letter in letters:
-        if letter not in word.lower():
-            wrong_letters += 1
-    if r" \_ " in hg_str:
-        found = False
-    else:
-        found = True
-    return (hg_str, wrong_letters, found)
-
-
-def splitletters(used_letters: str) -> list:
-    alphabet0 = "abcdefghijklm"
-    alphabet1 = "nopqrstuvwxyz"
-
-    used_letters = "".join(sorted(used_letters))
-
-    s0, s1 = "", ""
-
-    contains0 = False
-    contains1 = False
-
-    for letter in reversed(alphabet0):
-        if letter in used_letters:
-            s1 = used_letters.split(letter)[1]
-            contains0 = True
-            break
-
-    for letter in alphabet1:
-        if letter in used_letters:
-            s0 = used_letters.split(letter)[0]
-            contains1 = True
-            break
-
-    if contains0 and not contains1:
-        return [used_letters, ""]
-    elif contains1 and not contains0:
-        return ["", used_letters]
-    else:
-        return [s0, s1]
-
-
-async def check_inactive(
-    bot: Botty, current_data: dict, msg: discord.Message, time_out: int
-):
-    await asyncio.sleep(time_out)
-    if current_data == bot.cache.get_hangman(msg.id):
-        bot.cache.remove_hangman(msg.id)
-
-        await msg.edit(
-            embed=Embed(
-                title="Failed game",
-                description=f"Ended game due to inactivity (2min).",
-                color=0xAD3998,
-            ),
-            view=View(),
-        )
-
-
 class DropDownAM(Select):
-    def __init__(self, used_letters: str, bot: Botty):
-
-        self.bot = bot
-
+    """
+    DropDown for letters A to M
+    """
+    def __init__(self, used_letters: list[str]):
         options = [
             discord.SelectOption(emoji="🇦", label="A", value="a"),
             discord.SelectOption(emoji="🇧", label="B", value="b"),
@@ -131,14 +39,15 @@ class DropDownAM(Select):
         )
 
     async def callback(self, interaction: discord.Interaction):
-        await letter_select(self, interaction)
+        if game := ACTIVE_GAMES.get(interaction.message.id, None):
+            await game.letter_select(self, interaction)
 
 
 class DropDownNZ(Select):
-    def __init__(self, used_letters: str, bot: Botty):
-
-        self.bot = bot
-
+    """
+    DropDown for letters N to Z
+    """
+    def __init__(self, used_letters: list[str]):
         options = [
             discord.SelectOption(emoji="🇳", label="N", value="n"),
             discord.SelectOption(emoji="🇴", label="O", value="o"),
@@ -165,95 +74,175 @@ class DropDownNZ(Select):
         )
 
     async def callback(self, interaction: discord.Interaction):
-        await letter_select(self, interaction)
+        if game := ACTIVE_GAMES.get(interaction.message.id, None):
+            await game.letter_select(self, interaction)
 
 
-async def letter_select(
-    self: typing.Union[DropDownAM, DropDownNZ], interaction: discord.Interaction
-):
-    sub_letter = self.values[0]
 
-    data = self.bot.cache.get_hangman(interaction.message.id)  # type: ignore
+class HangManGame:
+    """
+    HangManGame instance. Should be short lived. Does not survive bot restarts.
+    """
 
-    if not data:
-        return
+    HANGMANPICS = [
+    "https://media.discordapp.net/attachments/869315104271904768/874025738238562344/01.png",
+    "https://media.discordapp.net/attachments/869315104271904768/874025739098419300/02.png",
+    "https://media.discordapp.net/attachments/869315104271904768/874025741354934272/04.png",
+    "https://media.discordapp.net/attachments/869315104271904768/874025742797783150/05.png",
+    "https://media.discordapp.net/attachments/869315104271904768/874025743678586960/06.png",
+    "https://media.discordapp.net/attachments/869315104271904768/874025745524088843/07.png",
+    "https://media.discordapp.net/attachments/869315104271904768/874025746828509204/08.png",
+    "https://media.discordapp.net/attachments/869315104271904768/874025747881275422/09.png",
+]
 
-    players = [int(i) for i in data["players"].split(",")]
-    used_letters = list(data["used_letters"])
+    def __init__(self, bot: Botty, player: int, word: str, msg: discord.Message) -> None:
+        self.bot = bot
+        self.word = word.lower()
+        self.msg = msg
+        self.current_player = player
+        self.players: list[int] = [player]
 
-    if interaction.user.id in players:
+        self.used_letters: list[str] = []
 
-        turn = data["user_id"]
+    @property
+    def next_player(self) -> int:
+        """
+        :return: the id of the next players, and updates the `current_player` var to that value
+        :rtype: int
+        """
+        next_player: int = self.players[(self.players.index(self.current_player) + 1) % len(self.players)]
+        self.current_player = next_player
+        return next_player
 
-        if turn == players[-1]:
-            next_turn = players[0]
-        else:
-            next_turn = players[players.index(turn) + 1]
+    @property
+    def winner_embed(self) -> discord.Embed:
+        """
+        :return: Embed for after winning the game
+        :rtype: discord.Embed
+        """
+        e = discord.Embed(
+            title="Winner Winner Chicken Dinner",
+            description=f"The word you were looking for is **{self.word}**, congratulations!\n{','.join(f'<@{player}>' for player in self.players)}",
+            color=0xAD3998,
+        )
+        e.add_field(name="Statistics",
+                    value=f"{len(self.used_letters) + 1} guesses where used before the word was found\n"
+                        f"It took you {round(((discord.utils.utcnow() - self.msg.created_at).total_seconds()/60))} minute(s) to find the word.")
+        return e
 
-        if interaction.user.id == turn:
-            used_letters.append(sub_letter)
-
-            HM_str_data = hangman_str(data["word"], used_letters)
-
-            if HM_str_data[2]:
-                self.bot.cache.remove_hangman(interaction.message.id)  # type: ignore
-
-                for user_id in players:
-                    await self.bot.PostgreSQL.update_lb(
-                        "hangman", interaction.channel_id, user_id, interaction.guild_id
-                    )
-                await interaction.response.edit_message(
-                    embed=winner_embed(data),
-                    view=View(),
-                )
-            elif HM_str_data[1] < 8:
-                e = Embed(
-                    title="Hangman!",
-                    description=f"#Letters: {len(data['word'])}\n <@{next_turn}>\n{HM_str_data[0]}",
+    @property
+    def loser_embed(self) -> discord.Embed:
+        """
+        :return: Embed for after losing the game
+        :rtype: discord.Embed
+        """
+        e = discord.Embed(
+                    title="Failed game",
+                    description=f"The word you were looking for is **{self.word}**. You have been hang before finding it :c",
                     color=0xAD3998,
                 )
-                e.set_image(url=HANGMANPICS[HM_str_data[1]])
-                new_data = self.bot.cache.update_hangman(
-                    data["word"],
-                    "".join(used_letters),
-                    next_turn,
-                    data["players"],
-                    interaction.message.id,  # type: ignore
-                    data["start_time"]
-                )
+        e.add_field(name="Statistics", value=f"{len(self.used_letters)} guesses where used before you were hang\n"
+                                    f"It took you {round(((discord.utils.utcnow() - self.msg.created_at).total_seconds()/60))} minute(s) to die.")
+        return e
 
-                await interaction.response.edit_message(
-                    embed=e, view=DropDownView("".join(used_letters), self.bot)
-                )
+    @property
+    def display_string(self) -> str:
+        """
+        :return: The string that shows with letters are missing, and which not.
+        :rtype: str
+        """
+        return " ".join(r"\_" if letter not in self.used_letters else letter for letter in self.word)
 
-                await check_inactive(self.bot, new_data, interaction.message, 120)  # type: ignore
-
-            else:
-                self.bot.cache.remove_hangman(interaction.message.id)  # type: ignore
-                e = Embed(
-                        title="Failed game",
-                        description=f"The word you were looking for is **{data['word']}**. You have been hang before finding it :c",
-                        color=0xAD3998,
-                    )
-                e.add_field(name="Statistics", value=f"{len(data['used_letters']) + 1} guesses where used before you were hang\n"
-                                            f"It took you {round(((discord.utils.utcnow() - data['start_time']).total_seconds()/60))} minute(s) to die.")
-                await interaction.response.edit_message(
-                    embed=e,
-                    view=View(),
-                )
-        else:
-            await interaction.response.send_message(
-                "Please wait for your turn!", ephemeral=True
+    def wrong_guesses(self) -> int:
+        """
+        :return: Amount of wrongly guessed numbers
+        :rtype: int
+        """
+        return len([i for i in self.used_letters if i not in self.word])
+    
+    def current_embed(self, wrong_guesses: int = None) -> discord.Embed:
+        """
+        :param wrong_guesses: amount of wrong guesses. Calls `wrong_guesses` if none are provided, defaults to None
+        :type wrong_guesses: int, optional
+        :return: Game embed
+        :rtype: discord.Embed
+        """
+        if not wrong_guesses:
+            wrong_guesses = self.wrong_guesses
+        e = discord.Embed(
+                title="Hangman!",
+                description=f"#Letters: {len(self.word)}\n <@{self.next_player}>\n{self.display_string}",
+                color=0xAD3998
             )
+        e.set_image(url=self.HANGMANPICS[wrong_guesses])
+        return e
 
-    else:
-        await interaction.response.send_message(
-            "You are not part of this game, click the **Join** button to join the game!",
-            ephemeral=True,
-        )
+    async def check_inactive(self, time_out: int):
+        """Function to call after move to remove the game from memory after `time_out` seconds  .
 
+        :param time_out: Seconds to wait
+        :type time_out: int
+        """
+        snap_shot = [i for i in self.used_letters]
+        await asyncio.sleep(time_out)
+        if snap_shot == self.used_letters:
+            await self.msg.edit(embed=discord.Embed(title="Failed game", description="Ended game due to inactivity (2min).", color=0xAD3998), view=View())
+
+    async def letter_select(self, dropdown: typing.Union[DropDownAM, DropDownNZ], interaction: discord.Interaction):
+        """Function to register a dropdown select to
+
+        :param dropdown: The dropdown the select is coming from
+        :type dropdown: typing.Union[DropDownAM, DropDownNZ]
+        :param interaction: associated interaction
+        :type interaction: discord.Interaction
+        """
+        letter = dropdown.values[0]
+
+        if interaction.user.id not in self.players:
+            return await interaction.response.send_message("You are not part of this game, click the **Join** button to join the game!", ephemeral=True)
+
+        if interaction.user.id != self.current_player:
+            return await interaction.response.send_message("Please await for your turn!", ephemeral=True)
+
+        await self.register_letter(interaction, letter)
+
+    async def register_letter(self, interaction: discord.Interaction, letter: str = ""):
+        """Register a move
+
+        :param interaction: Associate interaction
+        :type interaction: discord.Interaction
+        :param letter: Letter passed through, pass nothing to skip a move
+        :type letter: str
+        """
+        self.used_letters.append(letter)
+        display_string = self.display_string
+        wrong_guesses = self.wrong_guesses()
+
+        # All letters have been found
+        if "_" not in display_string:
+            await self.register_points()
+            return await interaction.response.edit_message(embed=self.winner_embed, view=View())
+
+        if wrong_guesses < 8:
+            await interaction.response.edit_message(embed=self.current_embed(wrong_guesses), view=DropDownView(self.used_letters, self.bot))
+            return await self.check_inactive(120)
+
+        ACTIVE_GAMES.pop(self.msg.id)
+        await interaction.response.edit_message(embed=self.loser_embed, view=View())
+
+    async def register_points(self):
+        """Gives all players in the game a point for guessing correctly.
+        """
+        for player in self.players:
+            await self.bot.PostgreSQL.update_lb("hangman", self.msg.channel.id, player, self.msg.guild.id)
+
+
+ACTIVE_GAMES: dict[int, HangManGame] = {}
 
 class WordGuess(Modal):
+    """
+    Modal to guess the entire word with
+    """
     guess = TextInput(label="word_guess", style=discord.TextStyle.short)  # type: ignore
 
     def __init__(self, bot: Botty, title: str = "Guess the word!") -> None:
@@ -261,163 +250,76 @@ class WordGuess(Modal):
         self.bot = bot
 
     async def on_submit(self, interaction: discord.Interaction):
-        data = self.bot.cache.get_hangman(interaction.message.id)  # type: ignore
-        sub_word = interaction.data["components"][0]["components"][0]["value"]  # type: ignore
+        game = ACTIVE_GAMES.get(interaction.message.id, None)
+        word_guess = interaction.data["components"][0]["components"][0]["value"]  # type: ignore
 
-        if not data:
+        if not game:
             return
 
-        players = [int(i) for i in data["players"].split(",")]
+        if game.current_player != interaction.user.id:
+            return await interaction.response.send_message("Please wait for your turn!", ephemeral=True)
 
-        if data["user_id"] == interaction.user.id:
+        if game.word == word_guess.lower():
+            ACTIVE_GAMES.pop(interaction.message.id)
+            game.register_points()
+            return await interaction.response.edit_message(embed=game.winner_embed, view=View())
 
-            if data["word"].lower() == sub_word.lower():
-                self.bot.cache.remove_hangman(interaction.message.id)  # type: ignore
-                await self.bot.PostgreSQL.update_lb(
-                    "hangman", interaction.channel.id, interaction.user.id, interaction.guild_id  # type: ignore
-                )
-                await interaction.response.edit_message(
-                    embed=winner_embed(data),
-                    view=View(),
-                )
-            else:
-
-                turn = data["user_id"]
-                players = [int(i) for i in data["players"].split(",")]
-
-                if turn == players[-1]:
-                    next_turn = players[0]
-                else:
-                    next_turn = players[players.index(turn) + 1]
-
-                self.bot.cache.update_hangman(
-                    data["word"],
-                    data["used_letters"],
-                    next_turn,
-                    data["players"],
-                    interaction.message.id,  # type: ignore
-                    data["start_time"]
-                )
-
-                HM_str_data = hangman_str(data["word"], list(data["used_letters"]))
-                e = Embed(
-                    title="Hangman!",
-                    description=f"#Letters: {len(data['word'])}\n <@{next_turn}>\n{HM_str_data[0]}",
-                    color=0xAD3998,
-                )
-                e.set_image(url=HANGMANPICS[HM_str_data[1]])
-                await interaction.response.edit_message(
-                    embed=e, view=DropDownView(data["used_letters"], self.bot)
-                )
-                await interaction.message.reply(  # type: ignore
-                    "Wrong guess, you lost your turn!", ephemeral=True
-                )
-
-        else:
-            await interaction.response.send_message(
-                "Please wait for your turn!", ephemeral=True
-            )
+        await game.register_letter(interaction, "")
+        await interaction.response.send_message("Wrong guess, you lost your turn!", ephemeral=True)
 
 
 class DropDownView(View):
-    def __init__(self, used_letters: str, bot: Botty):
+    """
+    The view containing all actions
+    """
+
+    def __init__(self, used_letters: list[str], bot: Botty):
         super().__init__(timeout=None)
         self.bot = bot
 
-        letters = splitletters(used_letters)
-
-        self.add_item(DropDownAM(letters[0], bot))
-        self.add_item(DropDownNZ(letters[1], bot))
+        self.add_item(DropDownAM(used_letters))
+        self.add_item(DropDownNZ(used_letters))
 
     @button(custom_id="join", label="Join", style=discord.ButtonStyle.green, row=2)
-    async def _join(self, interaction: discord.Interaction, button):
-        data = self.bot.cache.get_hangman(interaction.message.id)  # type: ignore
+    async def _join(self, interaction: discord.Interaction, _):
+        game = ACTIVE_GAMES.get(interaction.message.id, None)
 
-        if not data:
+        if not game:
             return
 
-        players = [int(i) for i in data["players"].split(",")]
-
-        if interaction.user.id in players:
-            await interaction.response.send_message(
-                "You are already playing.", ephemeral=True
-            )
-        else:
-            players.append(interaction.user.id)
-            self.bot.cache.update_hangman(
-                data["word"],
-                data["used_letters"],
-                data["user_id"],
-                ",".join([str(i) for i in players]),
-                data["msg_id"],
-                data["start_time"]
-            )
-            await interaction.response.send_message(
-                "You can play now, wait for your turn :)!", ephemeral=True
-            )
+        if interaction.user.id in game.players:
+            return await interaction.response.send_message("You are already playing.", ephemeral=True)
+        
+        game.players.append(interaction.user.id)
+        await interaction.response.send_message("You can play now, wait for your turn :)!", ephemeral=True)
 
     @button(custom_id="leave", label="Leave", style=discord.ButtonStyle.red, row=2)
-    async def _leave(self, interaction: discord.Interaction, button):
-        data = self.bot.cache.get_hangman(interaction.message.id)  # type: ignore
+    async def _leave(self, interaction: discord.Interaction, _):
+        game = ACTIVE_GAMES.get(interaction.message.id, None)
 
-        if not data:
+        if not game:
             return
 
-        players = [int(i) for i in data["players"].split(",")]
+        if interaction.user.id not in game.players:
+            return await interaction.response.send_message("You are not playing.", ephemeral=True)
 
-        if interaction.user.id not in players:
-            await interaction.response.send_message(
-                "You are not playing.", ephemeral=True
-            )
+        game.players.remove(interaction.user.id)
+
+
+        if len(game.players) > 0:
+            if interaction.user.id == game.current_player:
+                await game.register_letter(interaction, "")
+            return await interaction.response.send_message("You're not playing anymore, sad to see you go :(!", ephemeral=True)
         else:
-
-            if interaction.user.id == (turn := data["user_id"]):
-                if turn == players[-1]:
-                    next_turn = players[0]
-                else:
-                    next_turn = players[players.index(turn) + 1]
-
-                HM_str_data = hangman_str(data["word"], list(data["used_letters"]))
-
-                e = Embed(
-                    title="Hangman!",
-                    description=f"#Letters: {len(data['word'])}\n <@{next_turn}>\n{HM_str_data[0]}",
+            ACTIVE_GAMES.pop(interaction.message.id)
+            await interaction.response.edit_message(
+                embed=discord.Embed(
+                    title="Failed game",
+                    description="Ended game due to no players.",
                     color=0xAD3998,
-                )
-                e.set_image(url=HANGMANPICS[HM_str_data[1]])
-
-                if interaction.message:
-                    await interaction.message.edit(
-                        embed=e, view=DropDownView(data["used_letters"], self.bot)
-                    )
-
-            else:
-                next_turn = data["user_id"]
-
-            players.remove(interaction.user.id)
-
-            if len(players) > 0:
-                self.bot.cache.update_hangman(
-                    data["word"],
-                    data["used_letters"],
-                    next_turn,
-                    ",".join([str(i) for i in players]),
-                    data["msg_id"],
-                    data["start_time"]
-                )
-                await interaction.response.send_message(
-                    "You're not playing anymore, sad to see you go :(!", ephemeral=True
-                )
-            else:
-                self.bot.cache.remove_hangman(data["msg_id"])
-                await interaction.response.edit_message(
-                    embed=Embed(
-                        title="Failed game",
-                        description=f"Ended game due to no players.",
-                        color=0xAD3998,
-                    ),
-                    view=View(),
-                )
+                ),
+                view=View(),
+            )
 
     @button(
         custom_id="guess",
@@ -426,14 +328,24 @@ class DropDownView(View):
         style=discord.ButtonStyle.blurple,
         row=2,
     )
-    async def _guess(self, interaction: discord.Interaction, button):
+    async def _guess(self, interaction: discord.Interaction, _):
         await interaction.response.send_modal(WordGuess(self.bot))
 
 
 class HangMan(commands.Cog):
+    """
+    Try to find the hidden word before you get hang!
+    You can play the game alone or with more players, feel free to join or leave at any time by using the appropriate buttons.
+    In order of joining you will have to take action, you can either guess a letter by selecting one with the menus or submit
+    a guess by pressing guess.
+    """
     def __init__(self, bot: Botty) -> None:
         super().__init__()
         self.bot = bot
+    
+    @property
+    def display_emoji(self) -> discord.PartialEmoji:
+        return discord.PartialEmoji(name='\U0001faa2')
 
     def embed_logger(self, txt_log, channel_id, error_type=None):
         if error_type == "succ":
@@ -444,7 +356,7 @@ class HangMan(commands.Cog):
             colour = 0x1034A6
         else:
             colour = 0xAD3998
-        e = Embed(title="📖 Info 📖", colour=colour)
+        e = discord.Embed(title="📖 Info 📖", colour=colour)
         e.set_author(name=self.bot.user.name, icon_url=self.bot.user.avatar.url)
         e.add_field(name="Hangman", value=txt_log)
         e.set_footer(text=f"🆔 {channel_id} ⏳" + time())
@@ -461,29 +373,28 @@ class HangMan(commands.Cog):
         Start a game of HangMan, shorter: hm
         """
         word = get_HangMan_word()
+        display_string = " _ " * len(word)
 
-        e = Embed(
-            title="Hangman!",
-            description=f"#Letters: {len(word)}\n <@{ctx.author.id}>"
-            f" \n{hangman_str(word, [])[0]}",
-            color=0xAD3998,
-        )
-        e.set_image(url=HANGMANPICS[hangman_str(word, [""])[1]])
-        msg = await ctx.send(embed=e, view=DropDownView("", self.bot))
-        self.bot.cache.update_hangman(
-            word, "", ctx.author.id, str(ctx.author.id), msg.id, msg.created_at
-        )
+        e = discord.Embed(
+                title="Hangman!",
+                description=f"#Letters: {len(word)}\n <@{ctx.author.id}>\n{display_string}",
+                color=0xAD3998
+            )
+        e.set_image(url=HangManGame.HANGMANPICS[0])
+        msg: discord.Message = await ctx.send(embed=e, view=DropDownView([], self.bot))
+        game = HangManGame(self.bot, ctx.author.id, word, msg)
+        ACTIVE_GAMES[msg.id] = game
 
         for channel_id in self.bot.cache.get_channel_id(ctx.guild.id, "log"):
             await self.bot.get_channel(channel_id).send(
                 embed=self.embed_logger(
-                    f'{ctx.author} start a game of hangman, the word is {word}."',
+                    f'{ctx.author} start a game of hangman, the word is {word}.',
                     ctx.channel.id,
                     "s",
                 )
             )
 
-        await check_inactive(self.bot, self.bot.cache.get_hangman(msg.id), msg, 120)  # type: ignore
+        await game.check_inactive(120)
 
 
 async def setup(bot: Botty):

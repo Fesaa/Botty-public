@@ -1,17 +1,29 @@
+import io
+import csv
+import string
 import discord
+import asyncpg
 
 from discord import Embed
 from random import choice
 from discord.ext import commands
 
 from Botty import Botty
-from utils.functions import allowed_word, time, get_word
+from utils.functions import allowed_word, time
 
 
 class WordSnake(commands.Cog):
+    """
+    Create the longest possible snake!
+    This is done by finding a word that starts with the last letter of the previous word!
+    """
     def __init__(self, bot: Botty) -> None:
         super().__init__()
         self.bot = bot
+
+    @property
+    def display_emoji(self) -> discord.PartialEmoji:
+        return discord.PartialEmoji(name='\U0001f40d')
 
     async def cog_check(self, ctx: commands.Context) -> bool:
         if isinstance(ctx.channel, discord.DMChannel) or ctx.author.bot:
@@ -43,6 +55,37 @@ class WordSnake(commands.Cog):
             or ctx.channel.permissions_for(ctx.author).manage_messages is True
         )
 
+    async def _update_WordSnake_data(
+        self,
+        *,
+        channel_id: int,
+        last_user_id: int,
+        last_word: str,
+        msg_id: int,
+        count: int,
+    ) -> None:
+        async with self.bot.pool.acquire() as con:
+            con: asyncpg.connection.Connection  # type: ignore
+            async with con.transaction():
+                await con.execute(
+                    "UPDATE wordsnake_game_data SET last_user_id = $1, last_word = $2, msg_id = $3, count = $4 WHERE channel_id = $5;",
+                    last_user_id,
+                    last_word,
+                    msg_id,
+                    count,
+                    channel_id,
+                )
+    
+    async def _allowed_mistakes(self, *, channel_id: int, allowed_mistakes: int) -> None:
+        async with self.bot.pool.acquire() as con:
+            con: asyncpg.connection.Connection  # type: ignore
+            async with con.transaction():
+                await con.execute(
+                    "UPDATE wordsnake_game_data SET allowed_mistakes = $1 WHERE channel_id = $2;",
+                    allowed_mistakes,
+                    channel_id,
+                )
+
     @commands.command(aliases=["s"], no_pm=True)
     async def start(self, ctx: commands.Context, first_word: str = None):
         """
@@ -54,24 +97,20 @@ class WordSnake(commands.Cog):
             return await ctx.message.delete()
 
         if first_word is None:
-            first_word = "5"
-            while not allowed_word(first_word):
-                first_word = choice(get_word())[0]
+            first_word = choice(string.ascii_letters).lower()
 
-        if not allowed_word(first_word):
-            return await ctx.send(
-                "This is not a word in the English language, please only use a-z and A-Z!"
-            )
+        if not allowed_word(first_word) and len(first_word) > 1:
+            return await ctx.send("This is not a word in the English language, please only use a-z and A-Z!")
 
         await self.bot.PostgreSQL.game_switch("wordsnake", ctx.channel.id, True)
-        await self.bot.PostgreSQL.update_WordSnake_data(
+        await self._update_WordSnake_data(
             channel_id=ctx.channel.id,
             last_user_id=ctx.author.id,
-            last_word=first_word,
+            last_word=first_word,  # type: ignore
             msg_id=ctx.message.id,
             count=0,
         )
-        await self.bot.PostgreSQL.allowed_mistakes(
+        await self._allowed_mistakes(
             channel_id=ctx.channel.id,
             allowed_mistakes=self.bot.cache.get_game_settings(
                 ctx.guild.id, "ws_wrong_guesses"
@@ -92,19 +131,15 @@ class WordSnake(commands.Cog):
         await ctx.message.delete()
 
         if data:
-            return await ctx.send(
-                f"You have been playing for **{data['count']}** words!"
-            )
+            return await ctx.send(f"You have been playing for **{data['count']}** words!")
 
-        await ctx.send(
-            f"No game was running, start one with `{self.bot.cache.get_command_prefix(ctx.guild.id)}start <word*>`!"
-        )
+        await ctx.send(f"No game was running, start one with `{self.bot.cache.get_command_prefix(ctx.guild.id)}start <word*>`!")
 
     @commands.command(aliases=["rw"], no_pm=True)
     @commands.check(perms_check)
     async def resetwords(self, ctx: commands.Context):
         """
-        Reset all used words
+        Reset all used words in the channel
         """
 
         await self.bot.PostgreSQL.clear_words("wordsnake", ctx.channel.id)
@@ -113,11 +148,28 @@ class WordSnake(commands.Cog):
         await ctx.send("The used words have been reset")
 
         for channel_id in self.bot.cache.get_channel_id(ctx.guild.id, "log"):
-            await self.bot.get_channel(channel_id).send(
-                embed=self.embed_logger(
-                    f" {ctx.author.name} reset the used words.", ctx.channel.id, "s"
-                )
-            )
+            channel = self.bot.get_channel(channel_id)
+            if channel:
+                await channel.send(embed=self.embed_logger(f" {ctx.author.name} reset the used words.", ctx.channel.id, "s"))
+
+    @commands.command(no_pm = True, name = "listwords")
+    @commands.check(perms_check)
+    async def _listwords(self, ctx: commands.Context):
+        """
+        List all words
+        """
+
+        async with self.bot.pool.acquire() as con:
+            rows = await con.fetch("SELECT word FROM usedwords WHERE game = $1 AND channel_id = $2;", "wordsnake", ctx.channel.id)
+            if not rows:
+                return
+
+            buffer = io.StringIO()
+            writer = csv.writer(buffer)
+            writer.writerows([[r["word"]] for r in rows])
+            buffer.seek(0)
+
+            await ctx.channel.send(file=discord.File(buffer, 'words_csv'))
 
     @commands.Cog.listener()
     async def on_message_delete(self, msg: discord.Message):
@@ -181,14 +233,14 @@ class WordSnake(commands.Cog):
 
         if msg.content[0].lower() == data["last_word"][-1].lower():
 
-            await self.bot.PostgreSQL.update_WordSnake_data(
+            await self._update_WordSnake_data(
                 channel_id=msg.channel.id,
                 last_user_id=msg.author.id,
                 last_word=msg.content,
                 msg_id=msg.id,
                 count=data["count"] + 1,
             )
-            await self.bot.PostgreSQL.allowed_mistakes(
+            await self._allowed_mistakes(
                 channel_id=msg.channel.id,
                 allowed_mistakes=self.bot.cache.get_game_settings(
                     msg.guild.id, "ws_wrong_guesses"
@@ -204,7 +256,7 @@ class WordSnake(commands.Cog):
             msg.content[0].lower() == data["last_word"][0].lower()
             and data["allowed_mistakes"] > 0
         ):
-            await self.bot.PostgreSQL.allowed_mistakes(
+            await self._allowed_mistakes(
                 channel_id=msg.channel.id, allowed_mistakes=data["allowed_mistakes"] - 1
             )
             await msg.delete()

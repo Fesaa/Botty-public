@@ -3,10 +3,8 @@ import pathlib
 import asyncpg
 import discord
 
+from collections import Counter
 from discord.ext import commands
-from typing import (
-    Tuple
-)
 
 from BottyTypes import Config
 from BottyCache import BottyCache
@@ -26,11 +24,15 @@ class Defaults:
 class Botty(commands.Bot):
 
     bot_app_info: discord.AppInfo
+    command_stats: Counter[str]
+    command_types_used: Counter[bool]
 
     def __init__(self) -> None:
 
         config: Config = toml.load("config.toml")
         self.config = config
+
+        self.default_values = Defaults(self.config)
 
         self.cache = BottyCache()
 
@@ -53,12 +55,6 @@ class Botty(commands.Bot):
             application_id=self.config["DISCORD"]["APPLICATION_ID"],
             owner_ids=owner_ids,
         )
-
-    @property
-    def default_values(self) -> Defaults:
-        if not hasattr(self, "defaults"):
-            self._defaults = Defaults(self.config)
-        return self._defaults
 
     @property
     def Botty_colour(self) -> int:
@@ -98,12 +94,22 @@ class Botty(commands.Bot):
             print(f"Ready: {self.user} (ID: {self.user.id})")
 
     async def get_prefix(self, msg: discord.Message):
-        if not msg.guild:
-            return commands.when_mentioned_or(self.config["DISCORD"]["DEFAULT_PREFIX"])(self, msg)
+
+        if msg.author.id in self.owner_ids:
+            extra_prefix = "?"
+            if not msg.guild:
+                return commands.when_mentioned_or(self.config["DISCORD"]["DEFAULT_PREFIX"], extra_prefix)(self, msg)
+            else:
+                return commands.when_mentioned_or(
+                    self.cache.get_command_prefix(msg.guild.id), extra_prefix
+                )(self, msg)
         else:
-            return commands.when_mentioned_or(
-                self.cache.get_command_prefix(msg.guild.id)
-            )(self, msg)
+            if not msg.guild:
+                return commands.when_mentioned_or(self.config["DISCORD"]["DEFAULT_PREFIX"])(self, msg)
+            else:
+                return commands.when_mentioned_or(
+                    self.cache.get_command_prefix(msg.guild.id)
+                )(self, msg)
     
     async def build_cache(self, con: asyncpg.connection.Connection) -> None:
         # Prefixes
@@ -163,8 +169,3 @@ class Botty(commands.Bot):
             self.cache.update_game_settings(
                 row["guild_id"], "hl_max_number", row["hl_max_number"]
             )
-
-        # Tags
-        all_tags = await con.fetch("SELECT * FROM tag;")
-        for row in all_tags:
-            self.cache.add_tag(row["guild_id"], row["tag"], row["owner_id"])

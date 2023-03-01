@@ -1,11 +1,14 @@
-import typing
-
 from datetime import datetime
+from typing import (
+    TypedDict,
+    Optional,
+    List,
+    Dict
+)
 
-from utils.functions import similar
+from utils.ConnectFourGame import ConnectFourGame
 
-
-class HangManDict(typing.TypedDict):
+class HangManDict(TypedDict):
     word: str
     used_letters: str
     user_id: int
@@ -13,19 +16,23 @@ class HangManDict(typing.TypedDict):
     msg_id: int
     start_time: datetime
 
+class SettingsDict(TypedDict):
+    max_lb_size: Optional[int]
+    hl_max_reply: Optional[int]
+    ws_wrong_guesses: Optional[int]
+    hl_max_number: Optional[int]
+
 
 class BottyCache:
     def __init__(self) -> None:
-        self.command_prefix: typing.Dict[int, str] = {}
-        self.channel_id: typing.Dict[
-            int, typing.Dict[str, typing.List[typing.Optional[int]]]
+        self.command_prefix: Dict[int, str] = {}
+        self.channel_id: Dict[
+            int, Dict[str, List[Optional[int]]]
         ] = {}
-        self.game_setting: typing.Dict[int, typing.Dict[str, typing.Optional[int]]] = {}
-        self.connect_four: typing.Dict[int, dict] = {}
-        self.hangman: typing.Dict[int, HangManDict] = {}
-        self.higherlower: typing.Dict[int, dict] = {}
-        self.tag: typing.Dict[int, typing.List[dict]] = {}
-        pass
+        self.game_setting: Dict[int, SettingsDict] = {}
+        self.connect_four: Dict[int, ConnectFourGame] = {}
+        self.hangman: Dict[int, HangManDict] = {}
+        self.higherlower: Dict[int, dict] = {}
 
     def get_command_prefix(self, guild_id: int) -> str:
         return self.command_prefix.get(guild_id, "!")
@@ -35,14 +42,14 @@ class BottyCache:
 
     def get_channel_id(
         self, guild_id: int, channel_type: str
-    ) -> list[typing.Optional[int]]:
+    ) -> list[Optional[int]]:
         if self.channel_id.get(guild_id, None):
             return self.channel_id[guild_id].get(channel_type, [])
 
         self.channel_id[guild_id] = {}
         return []
 
-    def get_all_used_channels(self, guild_id: int) -> list[typing.Optional[int]]:
+    def get_all_used_channels(self, guild_id: int) -> list[Optional[int]]:
         if self.channel_id.get(guild_id, None):
             out = []
             for channels in self.channel_id[guild_id].values():
@@ -60,56 +67,50 @@ class BottyCache:
         self.channel_id[guild_id] = {}
         self.channel_id[guild_id][channel_type] = [int(i) for i in l]
     
-    def check_channel_game(self, guild_id: int, channel_id: int) -> typing.List[typing.Optional[str]]:
+    def check_channel_game(self, guild_id: int, channel_id: int) -> List[Optional[str]]:
         if self.channel_id.get(guild_id, None):
-            out: typing.List[typing.Optional[str]] = []
+            out: List[Optional[str]] = []
             for game_type, channels in self.channel_id[guild_id].items():
                 if channel_id in channels and game_type != 'cubelvl':
                     out.append(game_type)
             return out
         return []
 
-    def get_game_settings(
-        self, guild_id: int, game_setting: str
-    ) -> typing.Optional[int]:
+    def get_game_settings(self, guild_id: int, game_setting: str) -> Optional[int]:
         if self.game_setting.get(guild_id, None):
-            return self.game_setting[guild_id].get(game_setting, None)
+            return self.game_setting[guild_id].get(game_setting, None)  # type: ignore
 
-        self.game_setting[guild_id] = {}
+        self.game_setting[guild_id] = {}  # type: ignore
         return None
+
+    def get_all_games_settings(self, guild_id: int) -> Optional[SettingsDict]:
+        return self.game_setting.get(guild_id, None)
 
     def update_game_settings(
         self, guild_id: int, game_setting: str, setting: int
     ) -> None:
         if self.game_setting.get(guild_id, None):
-            self.game_setting[guild_id][game_setting] = setting
+            self.game_setting[guild_id][game_setting] = setting  # type: ignore
             return
 
-        self.game_setting[guild_id] = {}
-        self.game_setting[guild_id][game_setting] = setting
+        self.game_setting[guild_id] = {}  # type: ignore
+        self.game_setting[guild_id][game_setting] = setting  # type: ignore
 
-    def get_connect_four(self, msg_id: int) -> typing.Optional[dict]:
+    def add_connect_four(self, msg_id: int, game: ConnectFourGame) -> None:
+        self.connect_four[msg_id] = game
+
+    def get_connect_four(self, msg_id: int) -> Optional[ConnectFourGame]:
         return self.connect_four.get(msg_id, None)
-
-    def update_connect_four(
-        self, player1: int, player2: int, config: str, msg_id: int
-    ) -> None:
-        self.connect_four[msg_id] = {
-            "player1": player1,
-            "player2": player2,
-            "config": config,
-            "msg_id": msg_id,
-        }
 
     def remove_connect_four(self, msg_id: int) -> None:
         self.connect_four.pop(msg_id, None)
 
-    def get_hangman(self, msg_id: int) -> typing.Optional[HangManDict]:
+    def get_hangman(self, msg_id: int) -> Optional[HangManDict]:
         return self.hangman.get(msg_id, None)
 
     def update_hangman(
         self, word: str, used_letters: str, user_id: int, players: str, msg_id: int, start_time: datetime
-    ) -> typing.Optional[HangManDict]:
+    ) -> Optional[HangManDict]:
         self.hangman[msg_id] = {
             "word": word,
             "used_letters": used_letters,
@@ -123,7 +124,7 @@ class BottyCache:
     def remove_hangman(self, msg_id: int) -> None:
         self.hangman.pop(msg_id, None)
 
-    def get_higherlower(self, channel_id: int) -> typing.Optional[dict]:
+    def get_higherlower(self, channel_id: int) -> Optional[dict]:
         return self.higherlower.get(channel_id, None)
 
     def update_higherlower(
@@ -137,58 +138,3 @@ class BottyCache:
         }
         return self.higherlower[channel_id]
 
-    def add_tag(self, guild_id: int, tag: str, owner_id: int) -> None:
-        if self.tag.get(guild_id, None):
-            return (self.tag[guild_id]).append({"tag": tag, "owner_id": owner_id})
-
-        self.tag[guild_id] = [{"tag": tag, "owner_id": owner_id}]
-
-    def remove_tag(self, guild_id: int, tag: str) -> None:
-        if self.tag.get(guild_id, None):
-            self.tag[guild_id] = [
-                tag_info for tag_info in self.tag[guild_id] if tag_info["tag"] != tag
-            ]
-            return
-
-    def check_tag(
-        self, guild_id: int, tag: str, owner_id: int
-    ) -> typing.Tuple[bool, bool]:
-        if self.tag.get(guild_id, None):
-            return (
-                tag in [tag_info["tag"] for tag_info in self.tag[guild_id]],
-                any(
-                    [
-                        tag_info
-                        for tag_info in self.tag[guild_id]
-                        if tag_info["tag"] == tag and tag_info["owner_id"] == owner_id
-                    ]
-                ),
-            )
-        return (False, False)
-
-    def get_tag_suggestions(self, tag: str, guild_id: int = 000000000000000000) -> list:
-        if self.tag.get(guild_id, None):
-            return [
-                t
-                for t in [info["tag"] for info in self.tag[guild_id]]
-                if similar(tag.lower(), t.lower()) > 0.5
-            ]
-        return []
-
-    def __str__(self) -> str:
-        return (
-            "Channel Ids: \n"
-            + str(self.channel_id)
-            + "\nCommand Prefixes: \n"
-            + str(self.command_prefix)
-            + "\nGame Settings: \n"
-            + str(self.game_setting)
-            + "\nConnect Four: \n"
-            + str(self.connect_four)
-            + "\nHangMan: \n"
-            + str(self.hangman)
-            + "\nHigherLower: \n"
-            + str(self.higherlower)
-            + "\nTags: \n"
-            + str(self.tag)
-        )

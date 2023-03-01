@@ -11,12 +11,17 @@ class _ConfigDiscordDefaults(TypedDict):
     DEFAULT_WS_GUESSES: int
     DEFAULT_HL_MAX_NUMBER: int
 
+class _DiscordWebhook(TypedDict):
+    TOKEN: str
+    ID: int
+
 
 class _ConfigDiscord(TypedDict):
     TOKEN: str
     APPLICATION_ID: int
     DEFAULT_PREFIX: str
     DEFAULTS: _ConfigDiscordDefaults
+    WEBHOOK: _DiscordWebhook
 
 
 class _ConfigServerPostgreSQL(TypedDict):

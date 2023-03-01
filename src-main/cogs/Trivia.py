@@ -86,10 +86,17 @@ def question_embed(q: QuestionDict, colour: int = None):
 
 
 class TriviaCog(commands.Cog):
+    """
+    A small and easy to use trivia game!
+    """
 
     def __init__(self, bot: Botty) -> None:
         self.bot = bot
         super().__init__()
+
+    @property
+    def display_emoji(self) -> discord.PartialEmoji:
+        return discord.PartialEmoji(name='\U00002753')
 
     @discord.app_commands.command(name='trivia', description="Are you brave enough to try one of my questions?")
     @discord.app_commands.choices(category=[

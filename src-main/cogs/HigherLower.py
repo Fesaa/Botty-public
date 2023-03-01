@@ -10,9 +10,17 @@ from utils.functions import time
 
 
 class HigherLower(commands.Cog):
+    """
+    Classic higher lower game, guess until you find the hidden number! 
+    """
+
     def __init__(self, bot: Botty) -> None:
         super().__init__()
         self.bot = bot
+
+    @property
+    def display_emoji(self) -> discord.PartialEmoji:
+        return discord.PartialEmoji(name='\U00002195')
 
     def embed_logger(self, txt_log, channel_id, error_type=None):
         if error_type == "succ":

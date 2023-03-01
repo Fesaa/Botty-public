@@ -1,3 +1,5 @@
+import discord
+
 from math import ceil, sqrt
 from discord.ext import commands
 from discord import app_commands, DMChannel
@@ -7,8 +9,15 @@ from Botty import Botty
 
 
 class CubeLvl(commands.Cog):
+    """
+    Calculate all things Cube!
+    """
     def __init__(self, bot: Botty) -> None:
         self.bot = bot
+
+    @property
+    def display_emoji(self) -> discord.PartialEmoji:
+        return discord.PartialEmoji(name='\U0001f4c8')
 
     async def cog_check(self, ctx: commands.Context) -> bool:
         if isinstance(ctx.channel, DMChannel) or ctx.author.bot:
