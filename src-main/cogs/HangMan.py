@@ -104,6 +104,9 @@ class HangManGame:
 
         self.used_letters: list[str] = []
 
+    def debug_string(self) -> str:
+        return "{" + f"word: {self.word}, msg_id: {self.msg.id}, current_player: {self.current_player}, all_players: {','.join(map(str, self.players))}, used_letters: {','.join(map(str, self.used_letters))}" + "}" 
+
     @property
     def next_player(self) -> int:
         """
@@ -202,7 +205,11 @@ class HangManGame:
             return await interaction.response.send_message("You are not part of this game, click the **Join** button to join the game!", ephemeral=True)
 
         if interaction.user.id != self.current_player:
-            return await interaction.response.send_message("Please await for your turn!", ephemeral=True)
+            if len(self.players) != 1:
+                return await interaction.response.send_message("Please await for your turn!", ephemeral=True)
+            else:
+                await interaction.message.delete()
+                return await interaction.response.send_message("A fatal error occurred and the game has been destroyed. Sorry for the inconvenience.", ephemeral=True)
 
         await self.register_letter(interaction, letter)
 
@@ -254,14 +261,15 @@ class WordGuess(Modal):
         word_guess = interaction.data["components"][0]["components"][0]["value"]  # type: ignore
 
         if not game:
-            return
+            await interaction.message.delete()
+            return await interaction.response.send_message("This game seems to have died. Sorry for the inconvenience.")
 
         if game.current_player != interaction.user.id:
             return await interaction.response.send_message("Please wait for your turn!", ephemeral=True)
 
         if game.word == word_guess.lower():
             ACTIVE_GAMES.pop(interaction.message.id)
-            game.register_points()
+            await game.register_points()
             return await interaction.response.edit_message(embed=game.winner_embed, view=View())
 
         await game.register_letter(interaction, "")
@@ -285,7 +293,8 @@ class DropDownView(View):
         game = ACTIVE_GAMES.get(interaction.message.id, None)
 
         if not game:
-            return
+            await interaction.message.delete()
+            return await interaction.response.send_message("This game seems to have died. Sorry for the inconvenience.")
 
         if interaction.user.id in game.players:
             return await interaction.response.send_message("You are already playing.", ephemeral=True)
@@ -298,13 +307,13 @@ class DropDownView(View):
         game = ACTIVE_GAMES.get(interaction.message.id, None)
 
         if not game:
-            return
+            await interaction.message.delete()
+            return await interaction.response.send_message("This game seems to have died. Sorry for the inconvience.")
 
         if interaction.user.id not in game.players:
             return await interaction.response.send_message("You are not playing.", ephemeral=True)
 
         game.players.remove(interaction.user.id)
-
 
         if len(game.players) > 0:
             if interaction.user.id == game.current_player:
@@ -367,13 +376,25 @@ class HangMan(commands.Cog):
             return False
         return ctx.channel.id in self.bot.cache.get_channel_id(ctx.guild.id, "hangman")
 
+    @commands.command()
+    @commands.is_owner()
+    async def hangmandebug(self, ctx: commands.Context, msg_id: int):
+        """
+            Debug command for hangman
+        """
+        game = ACTIVE_GAMES.get(msg_id, None)
+        if game:
+            await ctx.send(f"```{game.debug_string()}```")
+        else:
+            await ctx.send(f"No game found for id: {msg_id}")
+
     @commands.command(aliases=["hg", "hm"])
     async def hangman(self, ctx: commands.Context):
         """
         Start a game of HangMan, shorter: hm
         """
         word = get_HangMan_word()
-        display_string = " _ " * len(word)
+        display_string = r" \_ " * len(word)
 
         e = discord.Embed(
                 title="Hangman!",
