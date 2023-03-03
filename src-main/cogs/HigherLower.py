@@ -1,12 +1,35 @@
-import discord
-
-from discord import Embed
 from random import randint
+from typing import (
+    Union,
+    Optional,
+)
+
+import asyncpg
+import discord
 from discord.ext import commands
 
-
 from Botty import Botty
-from utils.functions import time
+from framework.BaseGame import BaseGame
+from framework.GameChannelUpdate import GameChannelUpdateEvent
+from framework.enums import Game
+
+
+class HLGame(BaseGame):
+
+    def __init__(self, game: Game, bot: Botty, guild: Union[int, discord.Guild], channel: Union[int, Union[discord.TextChannel, discord.ForumChannel]], current_player: int, players: Optional[list[int]], max_number: int, max_reply: int) -> None:
+        super().__init__(game, bot, guild, channel, current_player, players)
+
+        self.count = 0
+        self.max_number = max_number
+        self.max_reply = max_reply
+        self.number = randint(0, self.max_number)
+
+    def debug_string(self) -> str:
+        return super().debug_string(count=self.count, max_number=self.max_number, max_reply=self.max_number, number=self.number)
+
+    def reset(self):
+        self.count = 0
+        self.number = randint(0, self.max_number)
 
 
 class HigherLower(commands.Cog):
@@ -14,26 +37,59 @@ class HigherLower(commands.Cog):
     Classic higher lower game, guess until you find the hidden number! 
     """
 
+    MAX_NUMBERS: dict[int, tuple[int]] = {}
+    GAMES: dict[int, HLGame] = {}
+
     def __init__(self, bot: Botty) -> None:
         super().__init__()
         self.bot = bot
+
+    async def populate(self):
+        async with self.bot.pool.acquire() as con:
+            con: asyncpg.Connection
+            rows = await con.fetch("SELECT guild_id, hl_max_number, hl_max_reply FROM game_settings WHERE hl_max_number IS NOT NULL;")
+            for row in rows:
+                self.MAX_NUMBERS[row["guild_id"]] = (row["hl_max_number"], row["hl_max_reply"])
+            
+            rows = await con.fetch("SELECT guild_id,higherlower FROM channel_ids;")
+            for row in rows:
+                if row["higherlower"] == '' or row["higherlower"] is None:
+                    continue
+                
+                for channel in map(int, row["higherlower"].split(",")):
+                    self.GAMES[channel] = HLGame(
+                        Game.HIGHERLOWER, self.bot,
+                        int(row["guild_id"]),
+                        channel,
+                        -1,
+                        [],
+                        self.MAX_NUMBERS[row["guild_id"]][0],
+                        self.MAX_NUMBERS[row["guild_id"]][1]
+                        )
+
+    @commands.command(aliases=["hld"])
+    @commands.is_owner()
+    async def higherlowerdebug(self, ctx: commands.Context, channel_id: int = None):
+        if not channel_id:
+            return await ctx.send(str(self.GAMES))
+
+        if game := self.GAMES.get(channel_id, None):
+            await ctx.send(f'```{game.debug_string()}```')
+        else:
+            await ctx.send(f"No game found in `{channel_id}`")
 
     @property
     def display_emoji(self) -> discord.PartialEmoji:
         return discord.PartialEmoji(name='\U00002195')
 
-    def embed_logger(self, txt_log, channel_id, error_type=None):
-        if error_type == "succ":
-            colour = 0x00A86B
-        elif error_type == "error":
-            colour = 0xF05E23
-        else:
-            colour = 0xAD3998
-        embed = Embed(title="📖 Info 📖", colour=colour)
-        embed.set_author(name=self.bot.user.name, icon_url=self.bot.user.avatar.url)
-        embed.add_field(name="higher_lower", value=txt_log)
-        embed.set_footer(text=f"🆔 {channel_id} ⏳" + time())
-        return embed
+    @commands.Cog.listener()
+    async def on_game_channel_update(self, e: GameChannelUpdateEvent):
+        ...
+        # TODO: Implement listener for channel management
+
+    @commands.Cog.listener()
+    async def on_populate_cache(self):
+        await self.populate()
 
     @commands.Cog.listener()
     async def on_message(self, msg: discord.Message):
@@ -43,31 +99,12 @@ class HigherLower(commands.Cog):
         if not msg.guild:
             return
 
-        if msg.channel.id not in self.bot.cache.get_channel_id(
-            msg.guild.id, "higherlower"
-        ):
-            return
-
         if msg.content.startswith(self.bot.cache.get_command_prefix(msg.guild.id)):
             return
 
-        data = self.bot.cache.get_higherlower(msg.channel.id)
+        game: HLGame = self.GAMES.get(msg.channel.id, None)
 
-        if not data:
-            data = self.bot.cache.update_higherlower(
-                0,
-                randint(
-                    1, self.bot.cache.get_game_settings(msg.guild.id, "hl_max_number")  # type: ignore
-                ),
-                self.bot.user.id,
-                msg.channel.id,
-            )
-
-        if (
-            data["count"]
-            == self.bot.cache.get_game_settings(msg.guild.id, "hl_max_reply")
-            and data["last_user_id"] == msg.author.id
-        ):
+        if game.count == game.max_reply and game.current_player == msg.author.id:
             return await msg.delete()
 
         try:
@@ -75,38 +112,21 @@ class HigherLower(commands.Cog):
         except ValueError:
             return await msg.delete()
 
-        if data["last_user_id"] != msg.author.id:
-            data = self.bot.cache.update_higherlower(
-                0, data["number"], msg.author.id, msg.channel.id
-            )
+        if game.current_player != msg.author.id:
+            game.count = 0
+            game.current_player = msg.author.id
 
-        if sub_count < data["number"]:
-            self.bot.cache.update_higherlower(
-                data["count"] + 1, data["number"], msg.author.id, msg.channel.id
-            )
+        if sub_count < game.number:
+            game.count = game.count + 1
             await msg.add_reaction("⬆️")
-        elif sub_count > data["number"]:
-            self.bot.cache.update_higherlower(
-                data["count"] + 1, data["number"], msg.author.id, msg.channel.id
-            )
+        elif sub_count > game.number:
+            game.count = game.count + 1
             await msg.add_reaction("⬇️")
         else:
             await msg.add_reaction("⭐")
-            await msg.channel.send(
-                f"{msg.author.mention} Correct my love! I have granted you a star ⭐"
-            )
-
-            self.bot.cache.update_higherlower(
-                0,
-                randint(
-                    1, self.bot.cache.get_game_settings(msg.guild.id, "hl_max_number")  # type: ignore
-                ),
-                msg.author.id,
-                msg.channel.id,
-            )
-            await self.bot.PostgreSQL.update_lb(
-                "higherlower", msg.channel.id, msg.author.id, msg.guild.id
-            )
+            await msg.channel.send(f"{msg.author.mention} Correct my love! I have granted you a star ⭐")
+            await game.grand_current_player(1)
+            game.reset()
 
 
 async def setup(bot: Botty):
