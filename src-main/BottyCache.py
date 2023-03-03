@@ -5,8 +5,6 @@ from typing import (
     Dict
 )
 
-from utils.ConnectFourGame import ConnectFourGame
-
 
 class SettingsDict(TypedDict):
     max_lb_size: Optional[int]
@@ -22,7 +20,6 @@ class BottyCache:
             int, Dict[str, List[Optional[int]]]
         ] = {}
         self.game_setting: Dict[int, SettingsDict] = {}
-        self.connect_four: Dict[int, ConnectFourGame] = {}
 
     def get_command_prefix(self, guild_id: int) -> str:
         return self.command_prefix.get(guild_id, "!")
@@ -85,12 +82,3 @@ class BottyCache:
 
         self.game_setting[guild_id] = {}  # type: ignore
         self.game_setting[guild_id][game_setting] = setting  # type: ignore
-
-    def add_connect_four(self, msg_id: int, game: ConnectFourGame) -> None:
-        self.connect_four[msg_id] = game
-
-    def get_connect_four(self, msg_id: int) -> Optional[ConnectFourGame]:
-        return self.connect_four.get(msg_id, None)
-
-    def remove_connect_four(self, msg_id: int) -> None:
-        self.connect_four.pop(msg_id, None)
