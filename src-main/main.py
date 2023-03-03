@@ -1,9 +1,9 @@
-import os
-import sys
-import pathlib
-import discord
-import logging
 import logging.handlers
+import os
+import pathlib
+import sys
+
+import discord
 
 os.chdir(os.path.dirname(os.path.abspath(__file__)))
 

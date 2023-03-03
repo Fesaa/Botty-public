@@ -1,15 +1,16 @@
-import toml  #  type: ignore
 import pathlib
+from collections import Counter
+
 import asyncpg
 import discord
-
-from collections import Counter
+import enchant
+import toml  # type: ignore
 from discord.ext import commands
 
-from BottyTypes import Config
 from BottyCache import BottyCache
+from BottyTypes import Config
 from utils.PostgreSQL import PostgreSQL
-from utils.translator import BottyTranslator
+
 
 class Defaults:
 
@@ -31,6 +32,11 @@ class Botty(commands.Bot):
 
         config: Config = toml.load("config.toml")
         self.config = config
+
+        with open("utils/words.txt", 'rt') as f:
+            self.words = [line.strip().split() for line in f.readlines()]
+
+        self.enchant_dictionary = enchant.Dict("en_GB")
 
         self.default_values = Defaults(self.config)
 
@@ -74,10 +80,6 @@ class Botty(commands.Bot):
 
         self.bot_app_info: discord.AppInfo = await self.application_info()
 
-        t = BottyTranslator()
-        await self.tree.set_translator(t)
-        t.close()
-
         async with self.pool.acquire() as con:
             await self.build_cache(con)
 
@@ -87,6 +89,8 @@ class Botty(commands.Bot):
                 await self.load_extension(ext)
             except Exception as error:
                 print("Failed to load extension: %s\n\n%s", ext, error)
+
+        self.dispatch("populate_cache")
 
     async def on_ready(self) -> None:
         if not hasattr(self, "uptime"):
@@ -132,18 +136,8 @@ class Botty(commands.Bot):
             )
             self.cache.update_channel_id(
                 row["guild_id"],
-                "higherlower",
-                row["higherlower"].split(",") if row["higherlower"] else [],
-            )
-            self.cache.update_channel_id(
-                row["guild_id"],
                 "connectfour",
                 row["connectfour"].split(",") if row["connectfour"] else [],
-            )
-            self.cache.update_channel_id(
-                row["guild_id"],
-                "hangman",
-                row["hangman"].split(",") if row["hangman"] else [],
             )
             self.cache.update_channel_id(
                 row["guild_id"],
@@ -161,11 +155,5 @@ class Botty(commands.Bot):
                 row["guild_id"], "max_lb_size", row["max_lb_size"]
             )
             self.cache.update_game_settings(
-                row["guild_id"], "hl_max_reply", row["hl_max_reply"]
-            )
-            self.cache.update_game_settings(
                 row["guild_id"], "ws_wrong_guesses", row["ws_wrong_guesses"]
-            )
-            self.cache.update_game_settings(
-                row["guild_id"], "hl_max_number", row["hl_max_number"]
             )

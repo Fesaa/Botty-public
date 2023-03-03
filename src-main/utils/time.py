@@ -1,12 +1,12 @@
 from __future__ import annotations
 
-import re
 import datetime
-import parsedatetime as pdt
-
-from discord.ext import commands
-from dateutil.relativedelta import relativedelta  # type: ignore
+import re
 from typing import TYPE_CHECKING, Any, Optional, Union
+
+import parsedatetime as pdt
+from dateutil.relativedelta import relativedelta  # type: ignore
+from discord.ext import commands
 
 from .formats import plural, human_join, format_dt as format_dt
 

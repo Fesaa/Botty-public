@@ -1,8 +1,8 @@
-import discord
-import asyncpg
-
-from discord import Embed
 from random import randint
+
+import asyncpg
+import discord
+from discord import Embed
 from discord.ext import commands
 
 from Botty import Botty

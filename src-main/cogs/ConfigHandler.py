@@ -1,13 +1,12 @@
+import asyncio
 import os
 import typing
-import asyncio
-import discord
 
+import discord
 from discord import Embed
 from discord.ext import commands, menus  # type: ignore
 
 from Botty import Botty
-from utils.functions import similar
 from utils.MyMenuPages import MyMenuPages
 from utils.config_functions import (
     update_prefix,
@@ -15,6 +14,7 @@ from utils.config_functions import (
     add_channels,
     update_game_setting
 )
+from utils.functions import similar
 
 # Default values
 CHANNEL_TYPES_OPTIONS = [
@@ -76,6 +76,7 @@ GAME_SETTINGS_CHOICE = [
             value="hl_max_number",
         ),
     ]
+DEFAULT_PREFIX ="?"
 
 
 
@@ -584,7 +585,7 @@ class ConfigHandler(commands.Cog):
 
         msg = await ctx.send("List on her way!", ephemeral=True)
         formatter = ChannelPageSource(channel_list, channel_type)
-        menu = MyMenuPages(formatter, delete_message_after=True)
+        menu = MyMenuPages(formatter, ctx, delete_message_after=True)
         await menu.start(ctx)
         try:
             await msg.delete()

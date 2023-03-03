@@ -1,8 +1,8 @@
-import typing
 import random
+import typing
+
 import asyncpg
 import discord
-
 from discord.ext import commands
 
 from Botty import Botty

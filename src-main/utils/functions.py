@@ -1,10 +1,10 @@
-from re import match
 import typing
-from enchant import Dict
 from datetime import datetime
-from random import choice, randint
 from difflib import SequenceMatcher
+from random import choice, randint
+from re import match
 
+from enchant import Dict
 
 d = Dict("en_GB")
 

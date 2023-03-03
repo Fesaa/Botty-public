@@ -2,7 +2,7 @@ import asyncio
 from typing import (
     Union,
     Optional,
-    overload
+    Any
 )
 
 import asyncpg
@@ -15,13 +15,13 @@ from framework.enums import Game
 class BaseGame:
 
     def __init__(self,
-                game: Game,
-                bot: Botty,
-                guild: Union[int, discord.Guild],
-                channel: Union[int, Union[discord.TextChannel, discord.ForumChannel]],
-                current_player: int,
-                players: Optional[list[int]]
-                ) -> None:
+                 game: Game,
+                 bot: Botty,
+                 guild: Union[int, discord.Guild],
+                 channel: Union[int, Union[discord.TextChannel, discord.ForumChannel]],
+                 current_player: int,
+                 players: Optional[list[int]]
+                 ) -> None:
 
         self.game = game
         self.bot = bot
@@ -29,7 +29,8 @@ class BaseGame:
         self.guild: Optional[discord.Guild] = None if isinstance(guild, int) else guild
         self.guild_id = guild if isinstance(guild, int) else guild.id
 
-        self.channel: Optional[Union[discord.TextChannel, discord.ForumChannel]] = None if isinstance(channel, int) else channel
+        self.channel: Optional[Union[discord.TextChannel, discord.ForumChannel]] = None if isinstance(channel,
+                                                                                                      int) else channel
         self.channel_id = channel if isinstance(channel, int) else channel.id
 
         self.current_player = current_player
@@ -41,17 +42,16 @@ class BaseGame:
         def debug_string(self) -> str:
             return super().debug_string(#all the new stuff)
         """
-        return '{' +\
-    f'game: {self.game}, guild: {self.guild_id}, channel: {self.channel_id}, current_player: {self.current_player}, players: {", ".join(map(str, self.players))}, ' +\
-    ", ".join(f"{key}: {value}" for key, value in extra.items()) +\
-    '}'
+        return '{' + \
+            f'game: {self.game}, guild: {self.guild_id}, channel: {self.channel_id}, current_player: {self.current_player}, players: {", ".join(map(str, self.players))}, ' + \
+            ", ".join(f"{key}: {value}" for key, value in extra.items()) + \
+            '}'
 
     async def check_inactive(self, time_out: int, *args, **kwargs):
         snapshot = self.debug_string()
-        asyncio.wait(time_out)
+        await asyncio.sleep(time_out)
         if snapshot == self.debug_string():
             await self.graceful_shutdown(*args, **kwargs)
-
 
     async def graceful_shutdown(self, *args, **kwargs):
         """
@@ -72,18 +72,16 @@ class BaseGame:
         if player not in self.players:
             self.players.append(player)
 
-    def remove_player(self, player: int) -> Optional[int]:
+    def remove_player(self, *args) -> Any:
         """ 
         Should be implemented per game to allow for game specific end logic if the last player leaves
         """
         ...
 
-    @overload
-    async def grand_points(self, score: int, *players: int):
+    async def grand_some(self, score: int, *players: int):
         await self._grand_points(players, score)
 
-    @overload
-    async def grand_points(self, score: int):
+    async def grand_everyone(self, score: int):
         await self._grand_points(self.players, score)
 
     async def grand_current_player(self, score: int):
@@ -91,7 +89,7 @@ class BaseGame:
 
     async def _grand_points(self, players: list[int], score: int):
         query: str = \
-        f"""
+            f"""
         INSERT INTO leaderboards
             (game, user_id, score, channel_id, guild_id)
         VALUES
@@ -105,4 +103,3 @@ class BaseGame:
             con: asyncpg.connection.Connection  # type: ignore
             async with con.transaction():
                 await con.execute(query, self.game.value, self.channel_id, self.guild_id, score)
-

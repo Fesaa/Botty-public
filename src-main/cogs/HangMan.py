@@ -1,3 +1,4 @@
+import random
 from typing import (
     Union
 )
@@ -6,7 +7,6 @@ import asyncpg
 import discord
 import discord.ui as ui
 from discord.ext import commands
-import random
 
 from Botty import Botty
 from framework.BaseGame import BaseGame

@@ -1,11 +1,11 @@
-import discord
-
 from math import ceil, sqrt
-from discord.ext import commands
-from discord import app_commands, DMChannel
 
-from utils import clc
+import discord
+from discord import app_commands, DMChannel
+from discord.ext import commands
+
 from Botty import Botty
+from utils import clc
 
 
 class CubeLvl(commands.Cog):

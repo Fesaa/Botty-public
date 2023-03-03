@@ -1,4 +1,3 @@
-from datetime import datetime
 from typing import (
     TypedDict,
     Optional,
@@ -8,13 +7,6 @@ from typing import (
 
 from utils.ConnectFourGame import ConnectFourGame
 
-class HangManDict(TypedDict):
-    word: str
-    used_letters: str
-    user_id: int
-    players: str
-    msg_id: int
-    start_time: datetime
 
 class SettingsDict(TypedDict):
     max_lb_size: Optional[int]
@@ -31,8 +23,6 @@ class BottyCache:
         ] = {}
         self.game_setting: Dict[int, SettingsDict] = {}
         self.connect_four: Dict[int, ConnectFourGame] = {}
-        self.hangman: Dict[int, HangManDict] = {}
-        self.higherlower: Dict[int, dict] = {}
 
     def get_command_prefix(self, guild_id: int) -> str:
         return self.command_prefix.get(guild_id, "!")
@@ -104,37 +94,3 @@ class BottyCache:
 
     def remove_connect_four(self, msg_id: int) -> None:
         self.connect_four.pop(msg_id, None)
-
-    def get_hangman(self, msg_id: int) -> Optional[HangManDict]:
-        return self.hangman.get(msg_id, None)
-
-    def update_hangman(
-        self, word: str, used_letters: str, user_id: int, players: str, msg_id: int, start_time: datetime
-    ) -> Optional[HangManDict]:
-        self.hangman[msg_id] = {
-            "word": word,
-            "used_letters": used_letters,
-            "user_id": user_id,
-            "players": players,
-            "msg_id": msg_id,
-            "start_time": start_time
-        }
-        return self.hangman[msg_id]
-
-    def remove_hangman(self, msg_id: int) -> None:
-        self.hangman.pop(msg_id, None)
-
-    def get_higherlower(self, channel_id: int) -> Optional[dict]:
-        return self.higherlower.get(channel_id, None)
-
-    def update_higherlower(
-        self, count: int, number: int, last_user_id: int, channel_id: int
-    ) -> dict:
-        self.higherlower[channel_id] = {
-            "count": count,
-            "number": number,
-            "last_user_id": last_user_id,
-            "channel_id": channel_id,
-        }
-        return self.higherlower[channel_id]
-

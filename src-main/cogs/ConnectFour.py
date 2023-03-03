@@ -1,10 +1,11 @@
 import discord
+from discord import ButtonStyle, Interaction, DMChannel
 from discord.ext import commands
 from discord.ui import View, button, Button
-from discord import ButtonStyle, Interaction, DMChannel
 
 from Botty import Botty
 from utils.ConnectFourGame import ConnectFourGame
+
 
 class ConnectFourGameView(View):
     def __init__(self, bot: Botty, timeout=None):

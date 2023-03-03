@@ -1,17 +1,17 @@
 from __future__ import annotations
 
-import discord
 import itertools
-
-from discord.ext import menus, commands  # type: ignore
 from typing import (
     Union,
     Any,
     Optional
 )
 
-from Botty import Botty
+import discord
+from discord.ext import menus, commands  # type: ignore
+
 import utils.time as time
+from Botty import Botty
 from utils.MyMenuPages import MyMenuPages
 
 

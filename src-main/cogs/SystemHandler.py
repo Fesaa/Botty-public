@@ -1,11 +1,11 @@
-import io
-import typing
-import discord
 import asyncio
-import textwrap
 import contextlib
+import io
+import textwrap
 import traceback
+import typing
 
+import discord
 from discord import Embed
 from discord.ext import commands
 

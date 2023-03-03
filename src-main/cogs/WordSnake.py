@@ -1,11 +1,11 @@
-import io
 import csv
+import io
 import string
-import discord
-import asyncpg
-
-from discord import Embed
 from random import choice
+
+import asyncpg
+import discord
+from discord import Embed
 from discord.ext import commands
 
 from Botty import Botty

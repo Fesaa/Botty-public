@@ -1,11 +1,12 @@
-import typing
-import asyncpg
 import asyncio
-import discord
+import typing
 
+import asyncpg
+import discord
 from discord.ext import commands
 
 from Botty import Botty
+
 
 class TagName(commands.clean_content):
     def __init__(self, *, lower: bool = False):

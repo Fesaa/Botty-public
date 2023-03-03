@@ -1,10 +1,10 @@
-import discord
-
-from discord.ext import menus, commands  # type: ignore
 from typing import (
     Dict,
     Any
 )
+
+import discord
+from discord.ext import menus, commands  # type: ignore
 
 
 class MyMenuPages(discord.ui.View, menus.MenuPages):

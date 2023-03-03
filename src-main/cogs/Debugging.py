@@ -1,13 +1,14 @@
-import discord
-import asyncpg
-
-from discord.ext import commands
 from typing import (
     Union,
     Optional
 )
 
+import asyncpg
+import discord
+from discord.ext import commands
+
 from Botty import Botty
+
 
 class Debugging(commands.Cog):
     """
