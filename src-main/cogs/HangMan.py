@@ -1,17 +1,15 @@
 import random
-from typing import (
-    Union
-)
 
-import asyncpg
 import discord
 import discord.ui as ui
 from discord.ext import commands
 
 from Botty import Botty
-from framework.BaseGame import BaseGame
-from framework.GameChannelUpdate import GameChannelUpdateEvent
-from framework.enums import Game
+from framework import (
+    BaseGame,
+    GameCog,
+    Game
+)
 
 
 class HangManGame(BaseGame):
@@ -26,9 +24,8 @@ class HangManGame(BaseGame):
         "https://media.discordapp.net/attachments/869315104271904768/874025747881275422/09.png",
     ]
 
-    def __init__(self, game: Game, bot: Botty, guild: Union[int, discord.Guild],
-                 channel: Union[int, Union[discord.TextChannel, discord.ForumChannel]], current_player: int) -> None:
-        super().__init__(game, bot, guild, channel, current_player, None)
+    def __init__(self, game: Game, bot: Botty, channel_id, guild_id, current_player: int) -> None:
+        super().__init__(game, bot, channel_id, guild_id, current_player, None)
 
         self.word = self.generate_word()
         self.used_letters: list[str] = []
@@ -37,14 +34,12 @@ class HangManGame(BaseGame):
 
     def generate_word(self) -> str:
         word = "thisshouldfailtheenchantcheck"
-        while not (self.bot.enchant_dictionary.check(word) and 5 < len(word) < 19):
+        while not ((self.bot.enchant_dictionary.check(word) or self.bot.enchant_dictionary.check(word.lower())) and 5 < len(word) < 19):
             word = random.choice(self.bot.words)[0]
         return word
 
-    async def start(self) -> None:
-        self.msg: discord.Message = await self.channel.send(embed=self.current_embed(),
-                                                            view=HangManGameView(self.bot, self))
-        self.bot.dispatch("add_hangman", self)
+    async def start(self, ctx: commands.Context) -> None:
+        self.msg: discord.Message = await ctx.send(embed=self.current_embed(), view=HangManGameView(self.bot, self))
         await self.check_inactive(120)
 
     def debug_string(self) -> str:
@@ -54,7 +49,6 @@ class HangManGame(BaseGame):
         self.players.pop(player)
 
         if len(self.players) == 0:
-            self.bot.dispatch("remove_hangman", self.msg.id)
             await interaction.response.edit_message(
                 embed=discord.Embed(
                     title="Failed game",
@@ -132,13 +126,11 @@ class HangManGame(BaseGame):
         return e
 
     async def graceful_shutdown(self):
-        self.bot.dispatch("remove_hangman", self.msg.id)
         await self.msg.edit(embed=discord.Embed(title="Failed game", description="Ended game due to inactivity (2min).",
                                                 color=0xAD3998), view=ui.View())
 
     async def guess_word(self, interaction: discord.Interaction, word: str):
         if self.word == word.lower():
-            self.bot.dispatch("remove_hangman", self.msg.id)
             await self.grand_current_player(1)
             return await interaction.response.edit_message(embed=self.winner_embed, view=ui.View())
 
@@ -164,7 +156,6 @@ class HangManGame(BaseGame):
                 return await interaction.response.send_message("Please await for your turn!", ephemeral=True)
             else:
                 await interaction.message.delete()
-                self.bot.dispatch("remove_hangman", self.msg.id)
                 return await interaction.response.send_message(
                     "A fatal error occurred and the game has been destroyed. Sorry for the inconvenience.",
                     ephemeral=True)
@@ -186,7 +177,6 @@ class HangManGame(BaseGame):
         # All letters have been found
         if "_" not in display_string:
             await self.grand_everyone(1)
-            self.bot.dispatch("remove_hangman", self.msg.id)
             return await interaction.response.edit_message(embed=self.winner_embed, view=ui.View())
 
         if wrong_guesses < 8:
@@ -194,7 +184,6 @@ class HangManGame(BaseGame):
                                                     view=HangManGameView(self.bot, self))
             return await self.check_inactive(120)
 
-        self.bot.dispatch("remove_hangman", self.msg.id)
         await interaction.response.edit_message(embed=self.loser_embed, view=ui.View())
 
 
@@ -293,81 +282,28 @@ class HangManGameView(ui.View):
         await interaction.response.send_modal(HangManWordGuessModal(self.bot, self.game))
 
 
-class HangMan(commands.Cog):
+class HangMan(GameCog):
     """
     Try to find the hidden word before you get hang!
     You can play the game alone or with more players, feel free to join or leave at any time by using the appropriate buttons.
     In order of joining you will have to take action, you can either guess a letter by selecting one with the menus or submit
     a guess by pressing guess.
     """
-
-    CHANNELS: list[int] = []
-    GAMES: dict[int, HangManGame] = {}
-
     def __init__(self, bot: Botty) -> None:
-        super().__init__()
+        super().__init__(bot, Game.HANGMAN)
         self.bot = bot
 
     @property
     def display_emoji(self) -> discord.PartialEmoji:
         return discord.PartialEmoji(name='\U0001faa2')
 
-    async def populate(self):
-        async with self.bot.pool.acquire() as con:
-            con: asyncpg.Connection
-            rows = await con.fetch("SELECT guild_id,hangman FROM channel_ids WHERE hangman IS NOT NULL;")
-
-            for row in rows:
-                if row["hangman"] == '':
-                    continue
-
-                for channel in map(int, row["hangman"].split(",")):
-                    self.CHANNELS.append(channel)
-
-    async def cog_check(self, ctx: commands.Context) -> bool:
-        if isinstance(ctx.channel, discord.DMChannel) or ctx.author.bot:
-            return False
-        return ctx.channel.id in self.CHANNELS
-
-    @commands.Cog.listener()
-    async def on_game_channel_update(self, e: GameChannelUpdateEvent):
-        ...
-        # TODO: Implement listener for channel management
-
-    @commands.Cog.listener()
-    async def on_populate_cache(self):
-        await self.populate()
-
-    @commands.Cog.listener()
-    async def on_add_hangman(self, game: HangManGame):
-        self.GAMES[game.msg.id] = game
-
-    @commands.Cog.listener()
-    async def on_remove_hangman(self, msg_id: int):
-        if msg_id in self.GAMES:
-            self.GAMES.pop(msg_id)
-
-    @commands.command(aliases=["hmd"])
-    @commands.is_owner()
-    async def hangmandebug(self, ctx: commands.Context[Botty], msg_id: int = None):
-        """
-            Debug command for hangman
-        """
-        if not msg_id:
-            return await ctx.send(str(self.GAMES or "No active games"))
-
-        if game := self.GAMES.get(msg_id, None):
-            await ctx.send(f'```{game.debug_string()}```')
-        else:
-            await ctx.send(f"No game found for `{msg_id}`")
-
     @commands.command(aliases=["hg", "hm"])
     async def hangman(self, ctx: commands.Context):
         """
         Start a game of HangMan, shorter: hm
         """
-        game = HangManGame(Game.HANGMAN, self.bot, ctx.guild, ctx.channel, ctx.author.id)
-        await game.start()
+        game = HangManGame(Game.HANGMAN, self.bot, ctx.channel.id, ctx.guild.id, ctx.author.id)
+        await game.start(ctx)
 
 
 async def setup(bot: Botty):

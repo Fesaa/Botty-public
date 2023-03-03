@@ -1,112 +1,100 @@
-from random import randint
+from random import randint, choice
 
 import asyncpg
 import discord
-from discord import Embed
 from discord.ext import commands
 
 from Botty import Botty
-from utils.functions import time, get_NTBPL_letters, allowed_word
+from framework import (
+    Game,
+    GameCog,
+    BaseGame
+)
 
 
-class Ntbpl(commands.Cog):
+class NTBPLGame(BaseGame):
+
+    def __init__(self, game: Game, bot: Botty, channel_id, guild_id, current_player: int, *, count: int):
+        super().__init__(game, bot, channel_id, guild_id, current_player, None)
+
+        self.count = count
+        self.letters: str = ...
+        self.channel_id: int = ...
+        self.word: str = ...
+
+    async def new_letters(self, channel: discord.TextChannel):
+        self.channel_id = channel.id
+        self.letters = await self.get_new_letters()
+        await channel.send(f"Find a word that includes the follow letters! **{self.letters}**")
+
+    async def check_used(self, word: str) -> bool:
+        async with self.bot.pool.acquire() as con:
+            con: asyncpg.connection.Connection
+            query = \
+                """
+            SELECT
+                word
+            FROM
+                usedwords
+            WHERE
+                game = $1
+            AND
+                channel_id = $2
+            AND
+                LOWER(word) = LOWER($3);
+            """
+            row = await con.fetchrow(query, self.game.value, self.channel_id, word)
+            return row is not None
+
+    async def get_new_letters(self) -> str:
+        word = "thisshouldfailtheenchantcheck"
+        while not (
+                (self.bot.enchant_dictionary.check(word) or self.bot.enchant_dictionary.check(word.lower()))
+                and not await self.check_used(word)
+                and len(word) > self.count + 2
+        ):
+            word = choice(self.bot.words)[0]
+
+        spil = randint(1, len(word) - self.count - 1)
+        self.word = word
+        return word[spil: spil + self.count]
+
+
+class NTBPL(GameCog):
     """
     A Custom game!
     I give you an amount of letters. And you send a word that contains these letters in the same order!
     What does this emoji mean?
     ✅: Your word was accepted
-    🔁: Somebody already used this word before you!"
+    🔁: Somebody already used this word before you!
     "None": Word is not valid
     """
-    def __init__(self, bot: Botty) -> None:
-        self.bot = bot
+
+    def __init__(self, bot: Botty):
+        super().__init__(bot, Game.NTBPL)
+        self.games: dict[int, NTBPLGame] = {}
 
     @property
     def display_emoji(self) -> discord.PartialEmoji:
         return discord.PartialEmoji(name='\U0001f4db')
 
-    async def cog_check(self, ctx: commands.Context) -> bool:
-        if isinstance(ctx.channel, discord.DMChannel) or ctx.author.bot:
-            return False
-        return ctx.channel.id in self.bot.cache.get_channel_id(ctx.guild.id, "ntbpl")
-
-    def embed_logger(
-        self, txt_log: str, channel_id: int, error_type: str = None
-    ) -> Embed:
-        if error_type == "succ":
-            colour = 0x00A86B
-        elif error_type == "error":
-            colour = 0xF05E23
-        elif error_type == "fail":
-            colour = 0xB80F0A
-        elif error_type == "s":
-            colour = 0x1034A6
-        else:
-            colour = 0xAD3998
-        embed = Embed(title="📖 Info 📖", colour=colour)
-        embed.set_author(name=self.bot.user.name, icon_url=self.bot.user.avatar.url)
-        embed.add_field(name="Name to be picked later", value=txt_log)
-        embed.set_footer(text=f"🆔 {channel_id} ⏳" + time())
-        return embed
-
-    def perms_check(ctx: commands.Context):
-        return (
-            ctx.author.id in ctx.bot.owner_ids
-            or ctx.channel.permissions_for(ctx.author).manage_messages is True
-        )
-
-    async def _update_NTBPL_data(
-        self, *, channel_id: int, count: int, letters: str, last_user_id: int
-    ) -> None:
-        async with self.bot.pool.acquire() as con:
-            con: asyncpg.connection.Connection  # type: ignore
-            async with con.transaction():
-                await con.execute(
-                    "UPDATE ntbpl_game_data SET count = $1, letters = $2, last_user_id = $3 WHERE channel_id = $4;",
-                    count,
-                    letters,
-                    last_user_id,
-                    channel_id,
-                )
-
-    @commands.command(aliases=["b"], no_pm=True)
-    async def begin(self, ctx: commands.Context, count: int = randint(2, 5)):
-        """
-        Begin a game of NTBPL, will overwrite the current game.
-        """
-
-        new_letters = await get_NTBPL_letters(self.bot, count, ctx.channel.id)
-        if await self.bot.PostgreSQL.get_game_data("ntbpl", ctx.channel.id) is None:
-            await self.bot.PostgreSQL.game_switch("ntbpl", ctx.channel.id, True)
-        await self._update_NTBPL_data(
-            channel_id=ctx.channel.id,
-            count=count,
-            letters=new_letters,
-            last_user_id=self.bot.user.id,
-        )
-
-        await ctx.send(
-            f"A game has started! I will present to you {count} letters in a specific order,"
-            f" you will have to reply with a word that has those letters in the same order!\n"
-            f"The letters now are: **{new_letters}**"
-        )
+    @commands.command(name="ntbpl")
+    async def _ntbpl(self, ctx: commands.Context, count: int = 3):
+        game = NTBPLGame(Game.NTBPL, self.bot, ctx.channel.id, ctx.guild.id, self.bot.user.id, count=count)
+        self.games[ctx.channel.id] = game
+        await game.new_letters(ctx.channel)
 
     @commands.command(aliases=["cw"], no_pm=True)
-    @commands.check(perms_check)
+    @commands.has_permissions(manage_messages=True)
     async def clearwords(self, ctx: commands.Context):
         """
         Clear all used words in the channel
         """
-        await self.bot.PostgreSQL.clear_words("ntbpl", ctx.channel.id)
+        async with self.bot.pool.acquire() as con:
+            con: asyncpg.Connection
+            await con.execute("DELETE FROM usedwords WHERE channel_id = $1 AND game = $2;", ctx.channel.id, self.game.value)
         await ctx.message.delete()
-        await ctx.send("The used words have been reset")
-
-        for channel_id in self.bot.cache.get_channel_id(ctx.guild.id, "log"):
-            await self.bot.get_channel(channel_id).send(
-                embed=self.embed_logger(
-                    f" {ctx.author.name} reset the used words.", ctx.channel.id, "s"
-                )
-            )
+        await ctx.send("The used words have been reset.")
 
     @commands.Cog.listener()
     async def on_message(self, msg: discord.Message):
@@ -116,44 +104,37 @@ class Ntbpl(commands.Cog):
         if not msg.guild:
             return
 
-        if msg.channel.id not in self.bot.cache.get_channel_id(msg.guild.id, "ntbpl"):
+        if msg.channel.id not in self.channels:
             return
 
         if msg.content.startswith(self.bot.cache.get_command_prefix(msg.guild.id)):
             return
 
-        data = await self.bot.PostgreSQL.get_game_data("ntbpl", msg.channel.id)
-        sub_word = msg.content.split(" ")[0].lower()
+        game = self.games.get(msg.channel.id, None)
 
-        if not data:
-            return
+        if not game:
+            game = NTBPLGame(Game.NTBPL, self.bot, msg.channel.id, msg.guild.id, self.bot.user.id, count=3)
+            self.games[msg.channel.id] = game
+            return await game.new_letters(msg.channel)
 
-        if data["last_user_id"] == msg.author.id:
+        word = msg.content.split(" ")[0].lower()
+
+        if game.current_player == msg.author.id:
             return await msg.delete()
 
-        if await self.bot.PostgreSQL.check_used_word("ntbpl", msg.channel.id, sub_word):
+        if await game.check_used(word):
             return await msg.add_reaction("🔁")
 
-        if not allowed_word(sub_word):
-            return 
+        if not self.bot.enchant_dictionary.check(word):
+            return
 
-        if not data["letters"] in sub_word:
-            return 
+        if not game.letters.lower() in word.lower():
+            return
 
-        new_letters = await get_NTBPL_letters(
-            self.bot, data["count"], msg.channel.id
-        )
-        await self._update_NTBPL_data(
-            channel_id=msg.channel.id,
-            count=data["count"],
-            letters=new_letters,
-            last_user_id=msg.author.id,
-        )
-        await self.bot.PostgreSQL.add_word("ntbpl", msg.channel.id, sub_word)
-        await self.bot.PostgreSQL.update_lb("ntbpl", msg.channel.id, msg.author.id, msg.guild.id)
-        await msg.add_reaction("✅")
-        await msg.channel.send(f"The new letters are **{new_letters}**")
+        game.current_player = msg.author.id
+        await game.grand_current_player(1)
+        await game.new_letters(msg.channel)
 
 
 async def setup(bot: Botty):
-    await bot.add_cog(Ntbpl(bot))
+    await bot.add_cog(NTBPL(bot))

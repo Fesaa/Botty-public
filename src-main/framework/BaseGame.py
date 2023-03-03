@@ -1,12 +1,11 @@
 import asyncio
 from typing import (
-    Union,
     Optional,
-    Any
+    Any,
+    Iterable
 )
 
 import asyncpg
-import discord
 
 from Botty import Botty
 from framework.enums import Game
@@ -17,8 +16,8 @@ class BaseGame:
     def __init__(self,
                  game: Game,
                  bot: Botty,
-                 guild: Union[int, discord.Guild],
-                 channel: Union[int, Union[discord.TextChannel, discord.ForumChannel]],
+                 channel_id: int,
+                 guild_id: int,
                  current_player: int,
                  players: Optional[list[int]]
                  ) -> None:
@@ -26,12 +25,8 @@ class BaseGame:
         self.game = game
         self.bot = bot
 
-        self.guild: Optional[discord.Guild] = None if isinstance(guild, int) else guild
-        self.guild_id = guild if isinstance(guild, int) else guild.id
-
-        self.channel: Optional[Union[discord.TextChannel, discord.ForumChannel]] = None if isinstance(channel,
-                                                                                                      int) else channel
-        self.channel_id = channel if isinstance(channel, int) else channel.id
+        self.channel_id = channel_id
+        self.guild_id = guild_id
 
         self.current_player = current_player
         self.players = players if players else [current_player]
@@ -55,9 +50,12 @@ class BaseGame:
 
     async def graceful_shutdown(self, *args, **kwargs):
         """
-        Implement as response to a failed check_inactive
+        Implement as custom response to a failed check_inactive
         """
         ...
+
+    def is_playing(self, player: int) -> bool:
+        return player in self.players
 
     def next_player(self) -> int:
         """
@@ -87,7 +85,7 @@ class BaseGame:
     async def grand_current_player(self, score: int):
         await self._grand_points([self.current_player], score)
 
-    async def _grand_points(self, players: list[int], score: int):
+    async def _grand_points(self, players: Iterable[int], score: int):
         query: str = \
             f"""
         INSERT INTO leaderboards

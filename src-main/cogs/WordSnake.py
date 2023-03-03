@@ -9,7 +9,6 @@ from discord import Embed
 from discord.ext import commands
 
 from Botty import Botty
-from utils.functions import allowed_word, time
 
 
 class WordSnake(commands.Cog):
@@ -99,7 +98,7 @@ class WordSnake(commands.Cog):
         if first_word is None:
             first_word = choice(string.ascii_letters).lower()
 
-        if not allowed_word(first_word) and len(first_word) > 1:
+        if not self.bot.enchant_dictionary.check(first_word) and len(first_word) > 1:
             return await ctx.send("This is not a word in the English language, please only use a-z and A-Z!")
 
         await self.bot.PostgreSQL.game_switch("wordsnake", ctx.channel.id, True)
@@ -228,7 +227,7 @@ class WordSnake(commands.Cog):
         if await self.bot.PostgreSQL.check_used_word("wordsnake", msg.channel.id, msg.content):
             return await msg.delete()
 
-        if not allowed_word(msg.content):
+        if not self.bot.enchant_dictionary.check(msg.content):
             return await msg.delete()
 
         if msg.content[0].lower() == data["last_word"][-1].lower():

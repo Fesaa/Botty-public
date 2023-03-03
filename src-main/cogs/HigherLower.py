@@ -1,6 +1,5 @@
 from random import randint
 from typing import (
-    Union,
     Optional,
 )
 
@@ -9,15 +8,18 @@ import discord
 from discord.ext import commands
 
 from Botty import Botty
-from framework.BaseGame import BaseGame
-from framework.GameChannelUpdate import GameChannelUpdateEvent
-from framework.enums import Game
+from framework import (
+    BaseGame,
+    GameCog,
+    Game
+)
 
 
-class HLGame(BaseGame):
+class HigherLowerGame(BaseGame):
 
-    def __init__(self, game: Game, bot: Botty, guild: Union[int, discord.Guild], channel: Union[int, Union[discord.TextChannel, discord.ForumChannel]], current_player: int, players: Optional[list[int]], max_number: int, max_reply: int) -> None:
-        super().__init__(game, bot, guild, channel, current_player, players)
+    def __init__(self, game: Game, bot: Botty, channel_id, guild_id, current_player: int, players: Optional[list[int]], max_number: int,
+                 max_reply: int) -> None:
+        super().__init__(game, bot, channel_id, guild_id, current_player, players)
 
         self.count = 0
         self.max_number = max_number
@@ -25,71 +27,38 @@ class HLGame(BaseGame):
         self.number = randint(0, self.max_number)
 
     def debug_string(self) -> str:
-        return super().debug_string(count=self.count, max_number=self.max_number, max_reply=self.max_number, number=self.number)
+        return super().debug_string(count=self.count, max_number=self.max_number, max_reply=self.max_number,
+                                    number=self.number)
 
     def reset(self):
         self.count = 0
         self.number = randint(0, self.max_number)
 
 
-class HigherLower(commands.Cog):
+class HigherLower(GameCog):
     """
     Classic higher lower game, guess until you find the hidden number! 
     """
 
-    MAX_NUMBERS: dict[int, tuple[int]] = {}
-    GAMES: dict[int, HLGame] = {}
+    CONFIG: dict[int, tuple[int, int]] = {}
 
     def __init__(self, bot: Botty) -> None:
-        super().__init__()
-        self.bot = bot
+        super().__init__(bot, Game.HIGHERLOWER)
 
-    async def populate(self):
+        self.games: dict[int, HigherLowerGame] = {}
+
+    async def cog_load(self) -> None:
+        await super().cog_load()
         async with self.bot.pool.acquire() as con:
             con: asyncpg.Connection
-            rows = await con.fetch("SELECT guild_id, hl_max_number, hl_max_reply FROM game_settings WHERE hl_max_number IS NOT NULL;")
+            rows = await con.fetch(
+                "SELECT guild_id, hl_max_number, hl_max_reply FROM game_settings WHERE hl_max_number IS NOT NULL;")
             for row in rows:
-                self.MAX_NUMBERS[row["guild_id"]] = (row["hl_max_number"], row["hl_max_reply"])
-            
-            rows = await con.fetch("SELECT guild_id,higherlower FROM channel_ids;")
-            for row in rows:
-                if row["higherlower"] == '' or row["higherlower"] is None:
-                    continue
-                
-                for channel in map(int, row["higherlower"].split(",")):
-                    self.GAMES[channel] = HLGame(
-                        Game.HIGHERLOWER, self.bot,
-                        int(row["guild_id"]),
-                        channel,
-                        -1,
-                        [],
-                        self.MAX_NUMBERS[row["guild_id"]][0],
-                        self.MAX_NUMBERS[row["guild_id"]][1]
-                        )
-
-    @commands.command(aliases=["hld"])
-    @commands.is_owner()
-    async def higherlowerdebug(self, ctx: commands.Context, channel_id: int = None):
-        if not channel_id:
-            return await ctx.send(str(self.GAMES))
-
-        if game := self.GAMES.get(channel_id, None):
-            await ctx.send(f'```{game.debug_string()}```')
-        else:
-            await ctx.send(f"No game found in `{channel_id}`")
+                self.CONFIG[row["guild_id"]] = (int(row["hl_max_number"]), int(row["hl_max_reply"]))
 
     @property
     def display_emoji(self) -> discord.PartialEmoji:
         return discord.PartialEmoji(name='\U00002195')
-
-    @commands.Cog.listener()
-    async def on_game_channel_update(self, e: GameChannelUpdateEvent):
-        ...
-        # TODO: Implement listener for channel management
-
-    @commands.Cog.listener()
-    async def on_populate_cache(self):
-        await self.populate()
 
     @commands.Cog.listener()
     async def on_message(self, msg: discord.Message):
@@ -102,7 +71,15 @@ class HigherLower(commands.Cog):
         if msg.content.startswith(self.bot.cache.get_command_prefix(msg.guild.id)):
             return
 
-        game: HLGame = self.GAMES.get(msg.channel.id, None)
+        if msg.channel.id not in self.channels:
+            return
+
+        game: HigherLowerGame = self.games.get(msg.channel.id, None)
+
+        if not game:
+            config = self.CONFIG[msg.guild.id]
+            game = HigherLowerGame(Game.HIGHERLOWER, self.bot, msg.channel.id, msg.guild.id, self.bot.user.id, [], config[0], config[1])
+            self.games[msg.channel.id] = game
 
         if game.count == game.max_reply and game.current_player == msg.author.id:
             return await msg.delete()

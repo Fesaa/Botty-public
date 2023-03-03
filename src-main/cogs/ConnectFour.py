@@ -1,116 +1,263 @@
+from typing import (
+    Optional,
+    Any
+)
+
 import discord
-from discord import ButtonStyle, Interaction, DMChannel
+import discord.ui as ui
 from discord.ext import commands
-from discord.ui import View, button, Button
 
 from Botty import Botty
-from utils.ConnectFourGame import ConnectFourGame
+from framework import (
+    BaseGame,
+    GameCog,
+    Game
+)
 
 
-class ConnectFourGameView(View):
-    def __init__(self, bot: Botty, timeout=None):
-        self.bot = bot
-        super().__init__(timeout=timeout)
+class RowFull(Exception):
+    pass
 
-    async def interaction_check(self, interaction: Interaction) -> bool:
-        connect_four_game = self.bot.cache.get_connect_four(interaction.message.id)  # type: ignore
 
-        if not connect_four_game:
-            return False
+class ConnectFourGame(BaseGame):
+    EMOJI_DICT: dict[int, str] = {0: "⚪", 1: "🟡", 2: "🔴"}
+    COLOUR_DICT = {"yellow": "1", "red": "2"}
 
-        return connect_four_game.is_playing(interaction.user.id)
+    def __init__(self, game: Game, bot: Botty, channel_id, guild_id,  current_player: int, players: Optional[list[int]]):
+        super().__init__(game, bot, channel_id, guild_id, current_player, players)
 
-    @button(emoji="1️⃣", style=ButtonStyle.blurple)
-    async def _one(self, interaction: Interaction, button: Button):
-        await self.button_callback(interaction, button, 0)
+        self.board: list[list[int]] = [[0 for _ in range(7)] for _ in range(6)]
+        self.moves: int = 0
 
-    @button(emoji="2️⃣", style=ButtonStyle.blurple)
-    async def _two(self, interaction: Interaction, button: Button):
-        await self.button_callback(interaction, button, 1)
+        self.msg: discord.Message = ...
 
-    @button(emoji="3️⃣", style=ButtonStyle.blurple)
-    async def _three(self, interaction: Interaction, button: Button):
-        await self.button_callback(interaction, button, 2)
+    def debug_string(self, **extra) -> str:
+        return super().debug_string(board=self.board_string, moves=self.moves)
 
-    @button(emoji="4️⃣", style=ButtonStyle.blurple)
-    async def _four(self, interaction: Interaction, button: Button):
-        await self.button_callback(interaction, button, 3)
+    async def start(self, ctx: commands.Context):
+        e = self.game_embed
+        e.set_footer(text="Ask someone to join you!"),
+        self.msg = await ctx.send(embed=e, view=ConnectFourPreGameView(self.bot, self))
+        await self.check_inactive(120)
 
-    @button(emoji="5️⃣", style=ButtonStyle.blurple)
-    async def _five(self, interaction: Interaction, button: Button):
-        await self.button_callback(interaction, button, 4)
+    async def graceful_shutdown(self, *args, **kwargs):
+        if self.msg:
+            await self.msg.edit(
+                embed=discord.Embed(title="Failed game", description="Ended game due to inactivity (2min).",
+                                    color=0xAD3998), view=ui.View())
 
-    @button(emoji="6️⃣", style=ButtonStyle.blurple)
-    async def _six(self, interaction: Interaction, button: Button):
-        await self.button_callback(interaction, button, 5)
+    def other(self, player: int) -> int:
+        return [i for i in self.players if i != player][0]
 
-    @button(emoji="7️⃣", style=ButtonStyle.blurple)
-    async def _seven(self, interaction: Interaction, button: Button):
-        await self.button_callback(interaction, button, 6)
+    def add_player(self, player: int):
+        self.players = [self.current_player, player]
 
-    @button(label="Join", style=ButtonStyle.green, disabled=True)
-    async def _join(self, interaction: Interaction, button: Button):
-        ...
+    async def remove_player(self, player: int, interaction: discord.Interaction) -> Any:
+        other = self.other(player)
 
-    @button(label="Leave", style=ButtonStyle.red)
-    async def _leave_in_game(self, interaction: Interaction, button):
-        connect_four_game = self.bot.cache.get_connect_four(interaction.message.id)  # type: ignore
-        if not connect_four_game:
-            return
+        if other == self.bot.user.id:
+            await interaction.message.delete()
 
-        e: discord.Embed = connect_four_game.game_embed
-        if connect_four_game.moves > 21:
-            e.set_footer(f"{self.bot.get_user(connect_four_game.get_opposite(interaction.user.id)).name} won the game since {self.bot.get_user(interaction.user.id)}!")
-            await self.bot.PostgreSQL.update_lb("connectfour", interaction.channel_id, connect_four_game.get_opposite(interaction.user.id), interaction.guild_id)
+        e: discord.Embed = self.game_embed
+        if self.moves > 21:
+            e.set_footer(
+                text=f"{self.bot.get_user(other).name} won the game since {self.bot.get_user(interaction.user.id)}!")
+            await self.grand_some(1, other)
         else:
-            e.set_footer(f"Game ended because {self.bot.get_user(interaction.user.id)} left!")
-        
-        await interaction.response.edit_message(embed=e, view=View())
+            e.set_footer(text=f"Game ended because {self.bot.get_user(interaction.user.id)} left!")
 
+        await interaction.response.edit_message(embed=e, view=ui.View())
 
-    async def button_callback(self, interaction: Interaction, button: Button, row: int):
-        connect_four_game = self.bot.cache.get_connect_four(interaction.message.id)  # type: ignore
-        if not connect_four_game:
+    @property
+    def game_embed(self) -> discord.Embed:
+        e = discord.Embed(
+            title="🟡 Connect four 🔴",
+            colour=0xAD3998,
+        )
+        e.add_field(
+            name=f"Game of {self.bot.get_user(self.players[0]).name} and {self.bot.get_user(self.players[1]).name} ",
+            value=self.board_string
+        )
+        return e
+
+    @property
+    def board_string(self) -> str:
+        board = ""
+        for line in self.board:
+
+            line_string = "🟦"
+            for dot in line:
+                line_string += self.EMOJI_DICT[dot]
+            line_string += "🟦"
+
+            board = line_string + "\n" + board
+        return board
+
+    def get_player_colour(self, player: int) -> int:
+        return self.players.index(player) + 1
+
+    async def register_move(self, interaction: discord.Interaction, row: int, view: discord.ui.View, button: ui.Button) -> None:
+        player = interaction.user.id
+        if not (
+                (self.moves % 2 == 0 and player == self.players[0])
+                or
+                (self.moves % 2 == 1 and player == self.players[1])
+        ):
+            if self.is_playing(player):
+                await interaction.response.send_message("Please await your turn.", ephemeral=True)
+            else:
+                await interaction.response.send_message("You're not part of this game.", ephemeral=True)
             return
-        await connect_four_game.register_move(interaction, row, self, button)
 
+        colour: int = self.get_player_colour(player)
 
-class ConnectFourPreGameView(View):
-    def __init__(self, bot: Botty, timeout=None):
-        self.bot = bot
-        super().__init__(timeout=timeout)
-
-    @button(label="Join", style=ButtonStyle.green)
-    async def _join(self, interaction: Interaction, button: Button):
-        connect_four_game = self.bot.cache.get_connect_four(interaction.message.id)  # type: ignore
-
-        if not connect_four_game:
-            return
-
-        if connect_four_game.is_playing(interaction.user.id):
-            await interaction.response.send_message("You cannot join your own game.", ephemeral=True)
-        else:
-            connect_four_game.set_player_two(interaction.user.id)
+        if self.apple_move_and_return_full_row_bool(colour, row):
             button.disabled = True
 
-            e: discord.Embed = connect_four_game.game_embed
-            e.set_footer(text=f"{self.bot.get_user(connect_four_game.player_one).name}'s turn!")
-            await interaction.response.edit_message(embed=e, view=ConnectFourGameView(self.bot),)
+        e: discord.Embed = self.game_embed
 
-    @button(label="Leave", style=ButtonStyle.red)
-    async def _leave(self, interaction: Interaction, button):
-        connect_four_game = self.bot.cache.get_connect_four(interaction.message.id)  # type: ignore
-
-        if not connect_four_game:
+        if self.check_win_state(colour):
+            e.set_footer(text=f"{self.bot.get_user(player).name} won the game!")
+            await interaction.response.edit_message(embed=e, view=ui.View())
+            await self.grand_current_player(1)
             return
 
-        if not connect_four_game.is_playing(interaction.user.id):
-            return
+        if self.moves == 42:
+            e.set_footer(text="Games ends in a draw, all spaces are used!")
+            await interaction.response.edit_message(embed=e, view=ui.View())
 
-        await interaction.message.delete()
+        next_player = self.next_player()
+        e.set_footer(text=f"{self.bot.get_user(next_player).name}'s turn!")
+        await interaction.response.edit_message(embed=e, view=view)
+        await self.check_inactive(120, interaction.message)
+
+    def apple_move_and_return_full_row_bool(self, player: int, row: int) -> bool:
+        placed = False
+        last_opening = False
+
+        for index, line in enumerate(self.board):
+            if line[row] == 0:
+                line[row] = player
+                placed = True
+                if index == 5:
+                    last_opening = True
+                break
+
+        if not placed:
+            raise RowFull
+
+        self.moves += 1
+        return last_opening
+
+    def check_win_state(self, player: int) -> bool:
+        for line_index, line in enumerate(self.board):
+            for dot_index, dot in enumerate(line):
+
+                # Straight lines horizontal
+                if dot_index < 4:
+                    if dot == line[dot_index + 1] == line[dot_index + 2] == line[dot_index + 3] == player:
+                        return True
+
+                # Diagonal lines up
+                if line_index < 3 and dot_index < 4:
+                    if dot == self.board[line_index + 1][dot_index + 1] == self.board[line_index + 2][dot_index + 2] == \
+                            self.board[line_index + 3][dot_index + 3] == player:
+                        return True
+
+                # Diagonal lines down
+                if line_index > 2 and dot_index < 4:
+                    if dot == self.board[line_index - 1][dot_index + 1] == self.board[line_index - 2][dot_index + 2] == \
+                            self.board[line_index - 3][dot_index + 3] == player:
+                        return True
+
+                # Straight lines vertical
+                if line_index < 3:
+                    if dot == self.board[line_index + 1][dot_index] == self.board[line_index + 2][dot_index] == \
+                            self.board[line_index + 3][dot_index] == player:
+                        return True
+
+        return False
 
 
-class ConnectFour(commands.Cog):
+class ConnectFourGameView(ui.View):
+
+    def __init__(self, bot: Botty, game: ConnectFourGame):
+        super().__init__(timeout=None)
+
+        self.bot = bot
+        self.game = game
+
+    async def interaction_check(self, interaction: discord.Interaction, /) -> bool:
+        return self.game.is_playing(interaction.user.id)
+
+    @ui.button(emoji="1️⃣", style=discord.ButtonStyle.blurple)
+    async def _one(self, interaction: discord.Interaction, button: ui.Button):
+        await self.game.register_move(interaction, 0, self, button)
+
+    @ui.button(emoji="2️⃣", style=discord.ButtonStyle.blurple)
+    async def _two(self, interaction: discord.Interaction, button: ui.Button):
+        await self.game.register_move(interaction, 1, self, button)
+
+    @ui.button(emoji="3️⃣", style=discord.ButtonStyle.blurple)
+    async def _three(self, interaction: discord.Interaction, button: ui.Button):
+        await self.game.register_move(interaction, 2, self, button)
+
+    @ui.button(emoji="4️⃣", style=discord.ButtonStyle.blurple)
+    async def _four(self, interaction: discord.Interaction, button: ui.Button):
+        await self.game.register_move(interaction, 3, self, button)
+
+    @ui.button(emoji="5️⃣", style=discord.ButtonStyle.blurple)
+    async def _five(self, interaction: discord.Interaction, button: ui.Button):
+        await self.game.register_move(interaction, 4, self, button)
+
+    @ui.button(emoji="6️⃣", style=discord.ButtonStyle.blurple)
+    async def _six(self, interaction: discord.Interaction, button: ui.Button):
+        await self.game.register_move(interaction, 5, self, button)
+
+    @ui.button(emoji="7️⃣", style=discord.ButtonStyle.blurple)
+    async def _seven(self, interaction: discord.Interaction, button: ui.Button):
+        await self.game.register_move(interaction, 6, self, button)
+
+    @ui.button(label="Join", style=discord.ButtonStyle.green, disabled=True)
+    async def _join(self, interaction: discord.Interaction, button: ui.Button):
+        ...
+
+    @ui.button(label="Leave", style=discord.ButtonStyle.red)
+    async def _leave(self, interaction: discord.Interaction, _):
+        if self.game.is_playing(interaction.user.id):
+            await self.game.remove_player(interaction.user.id, interaction)
+        else:
+            await interaction.response.send_message("You cannot leave a game you're not playing.", ephemeral=True)
+
+
+class ConnectFourPreGameView(ui.View):
+
+    def __init__(self, bot: Botty, game: ConnectFourGame):
+        super().__init__(timeout=None)
+
+        self.bot = bot
+        self.game = game
+
+    @ui.button(label="Join", style=discord.ButtonStyle.green)
+    async def _join(self, interaction: discord.Interaction, _):
+        if self.game.is_playing(interaction.user.id):
+            await interaction.response.send_message("Cannot join your own game.", ephemeral=True)
+        else:
+            self.game.add_player(interaction.user.id)
+
+            e = self.game.game_embed
+            e.set_footer(text=f"{self.bot.get_user(self.game.current_player).name}'s turn!")
+            await interaction.response.edit_message(embed=e, view=ConnectFourGameView(self.bot, self.game))
+
+    @ui.button(label="Leave", style=discord.ButtonStyle.red)
+    async def _leave(self, interaction: discord.Interaction, _):
+        if self.game.is_playing(interaction.user.id):
+            await self.game.remove_player(interaction.user.id, interaction)
+        else:
+            await interaction.response.send_message("You cannot leave a game you're not playing.", ephemeral=True)
+
+
+class ConnectFour(GameCog):
     """
     A children classic since 1974!
     The board consists of a 6x7 grid. The starting player will be playing yellow, the other red.
@@ -118,32 +265,22 @@ class ConnectFour(commands.Cog):
     With the soul objective to have 4 coins in a row! These rows can be made; horizontally, vertically or diagonally.
 
     """
+
     def __init__(self, bot: Botty) -> None:
         self.bot = bot
-        super().__init__()
+        super().__init__(bot, Game.CONNECTFOUR)
 
     @property
     def display_emoji(self) -> discord.PartialEmoji:
         return discord.PartialEmoji(name='\U0001f7e1')
 
-    async def cog_check(self, ctx: commands.Context) -> bool:
-        if isinstance(ctx.channel, DMChannel) or ctx.author.bot:
-            return False
-        return ctx.channel.id in self.bot.cache.get_channel_id(
-            ctx.guild.id, "connectfour"
-        )
-
-    @commands.command(aliases=["connect-four", "cf", "c4", "ConnectFour"])
-    async def connect_four(self, ctx: commands.Context):
+    @commands.command(aliases=["c4"])
+    async def _connectfour(self, ctx: commands.Context[Botty]):
         """
         Start a game of ConnectFour, shorter: c4
         """
-        new_game = ConnectFourGame(self.bot, ctx.author.id, self.bot.user.id)
-        e = new_game.game_embed
-        e.set_footer(text="Ask someone to join you!"),
-        msg = await ctx.send(embed=e,view=ConnectFourPreGameView(self.bot))
-        self.bot.cache.add_connect_four(msg.id, new_game)
-        await new_game.check_inactive(120, msg)
+        game = ConnectFourGame(Game.CONNECTFOUR, self.bot, ctx.channel.id, ctx.guild.id,  ctx.author.id, [ctx.author.id, self.bot.user.id])
+        await game.start(ctx)
 
 
 async def setup(bot: Botty):
