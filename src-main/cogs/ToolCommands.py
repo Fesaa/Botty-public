@@ -257,7 +257,7 @@ class ToolCommands(commands.Cog):
             title = f"⭐ {game} scores for {channel.name}🌟"  # type: ignore
 
         if not data:
-            return await interaction.response.send_message(f"No scores where found for you query \U0001f641", ephemeral=True)
+            return await interaction.response.send_message("No scores where found for you query \U0001f641", ephemeral=True)
         description = ""
         lb_prefix = ["🥇", "🥈", "🥉"] + [str(i) for i in range(4, max_lb_size + 1)]
         for index, entry in enumerate(data):

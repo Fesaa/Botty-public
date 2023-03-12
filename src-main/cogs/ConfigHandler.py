@@ -222,7 +222,7 @@ class PrefixConfigView(discord.ui.Modal):
         self, bot: Botty, current_prefix: str, *, timeout: typing.Optional[float] = None
     ) -> None:
         self.bot = bot
-        super().__init__(title=f"Choose your new prefix", timeout=timeout)
+        super().__init__(title="Choose your new prefix", timeout=timeout)
         self.add_item(discord.ui.TextInput(label="New Prefix", style=discord.TextStyle.short, required=True, placeholder=current_prefix, custom_id="new_prefix"))
 
     async def on_submit(self, interaction: discord.Interaction) -> None:
@@ -283,9 +283,6 @@ class ChannelPageSource(menus.ListPageSource):
         super().__init__(data, per_page=6)
 
     async def format_page(self, menu, entries):
-        page = menu.current_page
-        max_page = self.get_max_pages()
-        starting_number = page * self.per_page + 1
         page_content = "\n\n".join(entries)
         embed = Embed(
             title=f"Channels in use for {self.option}",

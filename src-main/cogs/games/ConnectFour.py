@@ -67,6 +67,7 @@ class ConnectFourGame(BaseGame):
             e.set_footer(text=f"Game ended because {self.bot.get_user(interaction.user.id)} left!")
 
         await interaction.response.edit_message(embed=e, view=ui.View())
+        self.game_end()
 
     @property
     def game_embed(self) -> discord.Embed:
@@ -120,11 +121,14 @@ class ConnectFourGame(BaseGame):
             e.set_footer(text=f"{self.bot.get_user(player).name} won the game!")
             await interaction.response.edit_message(embed=e, view=ui.View())
             await self.grand_current_player(1)
+            self.game_end()
             return
 
         if self.moves == 42:
             e.set_footer(text="Games ends in a draw, all spaces are used!")
             await interaction.response.edit_message(embed=e, view=ui.View())
+            self.game_end()
+            return
 
         next_player = self.next_player()
         e.set_footer(text=f"{self.bot.get_user(next_player).name}'s turn!")

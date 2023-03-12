@@ -13,7 +13,7 @@ from typing import (
 
 import discord
 from discord import Embed
-from discord.ext import commands, menus  # type: ignore
+from discord.ext import commands  # type: ignore
 
 from Botty import Botty
 
@@ -217,7 +217,7 @@ class AdminCommands(commands.Cog):
                 out, err = "", f"Permission denied: {cmd}"
 
             e = Embed(
-                title=f"CLI command execution",
+                title="CLI command execution",
                 description=cmd,
                 colour=discord.Colour.blurple(),
                 timestamp=discord.utils.utcnow(),
@@ -261,7 +261,7 @@ class AdminCommands(commands.Cog):
         try:
             with contextlib.redirect_stdout(stdout):
                 ret = await func()
-        except Exception as e:
+        except Exception:
             value = stdout.getvalue()
             await ctx.send(embed=Embed(title="Error:", description=f"```py\n{value}{traceback.format_exc()}\n```"))
         else:

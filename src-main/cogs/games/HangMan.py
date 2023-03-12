@@ -57,6 +57,7 @@ class HangManGame(BaseGame):
                 ),
                 view=ui.View(),
             )
+            self.game_end()
         else:
             if interaction.user.id == self.current_player:
                 await self.register_letter(interaction, "")
@@ -155,6 +156,7 @@ class HangManGame(BaseGame):
             if len(self.players) != 1:
                 return await interaction.response.send_message("Please await for your turn!", ephemeral=True)
             else:
+                self.game_end()
                 await interaction.message.delete()
                 return await interaction.response.send_message(
                     "A fatal error occurred and the game has been destroyed. Sorry for the inconvenience.",
@@ -177,6 +179,7 @@ class HangManGame(BaseGame):
         # All letters have been found
         if "_" not in display_string:
             await self.grand_everyone(1)
+            self.game_end()
             return await interaction.response.edit_message(embed=self.winner_embed, view=ui.View())
 
         if wrong_guesses < 8:
@@ -185,6 +188,7 @@ class HangManGame(BaseGame):
             return await self.check_inactive(120)
 
         await interaction.response.edit_message(embed=self.loser_embed, view=ui.View())
+        self.game_end()
 
 
 class AlphabetDropDown(ui.Select):

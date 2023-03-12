@@ -10,11 +10,11 @@ class Game(Enum):
 
 
 class Update(Enum):
-    REMOVE: 0
-    ADD: 1
+    REMOVE = 0
+    ADD = 1
 
 
 class DebugRequest(Enum):
-    CHANNELS: 0
-    GAMEINFO: 0
+    CHANNELS = 0
+    GAMEINFO = 1
 

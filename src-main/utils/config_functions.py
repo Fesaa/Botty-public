@@ -64,7 +64,7 @@ async def remove_channels(int_ctx: Union[commands.Context, discord.Interaction],
         for channel_id in removed_ids:
             channel = bot.get_channel(channel_id)
             if channel.permissions_for(channel.guild.me).manage_channels:
-                await channel.edit(slowmode_delay=0, reason=f"Automated channel edit to remove the slow mode after a game has been removed.")
+                await channel.edit(slowmode_delay=0, reason="Automated channel edit to remove the slow mode after a game has been removed.")
             elif channel.slowmode_delay != 0:
                 missing_perms = True
         

@@ -1,15 +1,18 @@
 from typing import (
-    Optional
+    Optional,
+    TYPE_CHECKING
 )
 
-from discord.ext import commands
+if TYPE_CHECKING:
+    from discord.ext import commands
 
-from framework.enums import *
+    from framework.BaseGame import BaseGame
+    from framework.enums import Game, Update, DebugRequest
 
 
 class GameChannelUpdateEvent:
 
-    def __init__(self, game: Game, update_type: Update, channels: list[int]) -> None:
+    def __init__(self, game: 'Game', update_type: 'Update', channels: list[int]) -> None:
         self.game = game
         self.update_type = update_type
         self.channels = channels
@@ -17,8 +20,15 @@ class GameChannelUpdateEvent:
 
 class GameDebugEvent:
 
-    def __init__(self, ctx: commands.Context, game: Game, debug_type: DebugRequest, *, channel: Optional[int]):
+    def __init__(self, ctx: 'commands.Context', game: 'Game', debug_type: 'DebugRequest', *, channel: Optional[int]):
         self.game = game
         self.debug_type = debug_type
         self.channel = channel
         self.ctx = ctx
+
+class GameUpdateEvent:
+
+    def __init__(self, game: 'Game', update_type: 'Update', game_data: 'BaseGame') -> None:
+        self.game = game
+        self.update_type = update_type
+        self.game_data = game_data

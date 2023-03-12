@@ -1,31 +1,63 @@
+import asyncpg
 import discord
+from typing import TYPE_CHECKING
+
 from discord.ext import commands
 
+if TYPE_CHECKING:
+    from framework.BaseGame import BaseGame
+    from framework.GameEvents import GameChannelUpdateEvent, GameDebugEvent, GameUpdateEvent
+    from framework.enums import Game
+
+
 from Botty import Botty
-from framework.GameEvents import GameChannelUpdateEvent, GameDebugEvent
-from framework.enums import Game, Update, DebugRequest
+
+
+from framework.enums import Update, DebugRequest
 
 
 class GameCog(commands.Cog):
 
-    def __init__(self, bot: Botty, game: Game, limit_to_channel: bool = True):
+    def __init__(self, bot: Botty, game: 'Game', limit_to_channel: bool = True):
         self.bot = bot
         super().__init__()
 
         self.game = game
         self.channels: list[int] = []
+        self.games: dict[int, 'BaseGame'] = {}
         self.limit_to_channel = limit_to_channel
 
     @commands.Cog.listener()
-    async def on_game_debug(self, e: GameDebugEvent):
+    async def on_game_update(self, e: 'GameUpdateEvent'):
+        if e.game != self.game:
+            return
+
+        if e.update_type == Update.ADD:
+            self.games[e.game_data.channel_id] = e.game_data
+            return
+
+        if e.update_type == Update.REMOVE:
+            try:
+                self.games.pop(e.game_data.channel_id)
+            except KeyError:
+                pass
+
+    @commands.Cog.listener()
+    async def on_game_debug(self, e: 'GameDebugEvent'):
         if e.game != self.game:
             return
 
         if e.debug_type == DebugRequest.CHANNELS:
             await e.ctx.send(f"{self.game} is listening in {','.join(map(str, self.channels))}")
 
+        if e.debug_type == DebugRequest.GAMEINFO:
+            if game := self.games.get(e.channel, None):
+                await e.ctx.send(f"```{game.debug_string()}```")
+            else:
+                await e.ctx.send(f"No games found for <#{e.channel}>.")
+
     @commands.Cog.listener()
-    async def on_game_channel_update(self, e: GameChannelUpdateEvent):
+    async def on_game_channel_update(self, e: 'GameChannelUpdateEvent'):
         if e.game != self.game:
             return
 

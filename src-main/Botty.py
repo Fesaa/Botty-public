@@ -1,4 +1,5 @@
-import pathlib
+from itertools import chain
+from pkgutil import iter_modules
 from collections import Counter
 
 import asyncpg
@@ -30,11 +31,14 @@ class Botty(commands.Bot):
 
     def __init__(self) -> None:
 
+        self.pool:asyncpg.Pool = ...
+        self.PostgreSQL: PostgreSQL = ...
+
         config: Config = toml.load("config.toml")
         self.config = config
 
-        with open("utils/words.txt", 'rt') as f:
-            self.words = [line.strip().split() for line in f.readlines()]
+        with open("utils/words.txt", 'rt', encoding='utf-8') as file:
+            self.words = [line.strip().split() for line in file.readlines()]
 
         self.enchant_dictionary = enchant.Dict("en_GB")
 
@@ -65,11 +69,11 @@ class Botty(commands.Bot):
     @property
     def Botty_colour(self) -> int:
         return self.config["BOTTY"].get("COLOUR", 0xAD3998)  # type: ignore
-    
+
     @property
     def owner(self) -> discord.User:
         return self.bot_app_info.owner
-    
+
     def run(self, *args, **kwargs) -> None:
         return super().run(self.config["DISCORD"]["TOKEN"], *args, **kwargs)
 
@@ -83,14 +87,12 @@ class Botty(commands.Bot):
         async with self.pool.acquire() as con:
             await self.build_cache(con)
 
-        for file in sorted(pathlib.Path("cogs").glob("**/[!_]*.py")):
-            ext = ".".join(file.parts).removesuffix(".py")
+        for ext in chain(iter_modules(["cogs"], prefix='cogs.'), iter_modules(["cogs/games"], prefix='cogs.games.')):
             try:
-                await self.load_extension(ext)
+                await self.load_extension(ext.name)
             except Exception as error:
-                print("Failed to load extension: %s\n\n%s", ext, error)
-
-        self.dispatch("populate_cache")
+                raise error
+                print("Failed to load extension: %s\n\n%s", ext.name, error)
 
     async def on_ready(self) -> None:
         if not hasattr(self, "uptime"):
@@ -98,23 +100,18 @@ class Botty(commands.Bot):
             print(f"Ready: {self.user} (ID: {self.user.id})")
 
     async def get_prefix(self, msg: discord.Message):
+        prefixes: list[str]
+
+        if not msg.guild:
+            prefixes = commands.when_mentioned_or(self.config["DISCORD"]["DEFAULT_PREFIX"])(self, msg)
+        else:
+            prefixes = commands.when_mentioned_or(self.cache.get_command_prefix(msg.guild.id))(self, msg)
 
         if msg.author.id in self.owner_ids:
-            extra_prefix = "?"
-            if not msg.guild:
-                return commands.when_mentioned_or(self.config["DISCORD"]["DEFAULT_PREFIX"], extra_prefix)(self, msg)
-            else:
-                return commands.when_mentioned_or(
-                    self.cache.get_command_prefix(msg.guild.id), extra_prefix
-                )(self, msg)
-        else:
-            if not msg.guild:
-                return commands.when_mentioned_or(self.config["DISCORD"]["DEFAULT_PREFIX"])(self, msg)
-            else:
-                return commands.when_mentioned_or(
-                    self.cache.get_command_prefix(msg.guild.id)
-                )(self, msg)
-    
+            prefixes.append("?")
+
+        return prefixes
+
     async def build_cache(self, con: asyncpg.connection.Connection) -> None:
         # Prefixes
         all_prefixes = await con.fetch("SELECT * FROM command_prefix;")
@@ -124,21 +121,6 @@ class Botty(commands.Bot):
         # Channel Ids
         all_channel_ids = await con.fetch("SELECT * FROM channel_ids;")
         for row in all_channel_ids:
-            self.cache.update_channel_id(
-                row["guild_id"],
-                "wordsnake",
-                row["wordsnake"].split(",") if row["wordsnake"] else [],
-            )
-            self.cache.update_channel_id(
-                row["guild_id"],
-                "ntbpl",
-                row["ntbpl"].split(",") if row["ntbpl"] else [],
-            )
-            self.cache.update_channel_id(
-                row["guild_id"],
-                "connectfour",
-                row["connectfour"].split(",") if row["connectfour"] else [],
-            )
             self.cache.update_channel_id(
                 row["guild_id"],
                 "cubelvl",
@@ -153,7 +135,4 @@ class Botty(commands.Bot):
         for row in all_game_settings:
             self.cache.update_game_settings(
                 row["guild_id"], "max_lb_size", row["max_lb_size"]
-            )
-            self.cache.update_game_settings(
-                row["guild_id"], "ws_wrong_guesses", row["ws_wrong_guesses"]
             )

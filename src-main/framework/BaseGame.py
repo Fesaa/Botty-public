@@ -8,7 +8,8 @@ from typing import (
 import asyncpg
 
 from Botty import Botty
-from framework.enums import Game
+from framework.enums import Game, Update
+from framework.GameEvents import GameUpdateEvent
 
 
 class BaseGame:
@@ -31,6 +32,8 @@ class BaseGame:
         self.current_player = current_player
         self.players = players if players else [current_player]
 
+        self.bot.dispatch("game_update", GameUpdateEvent(self.game, Update.ADD, self))
+
     def debug_string(self, **extra) -> str:
         """Base debug string. Should be overwritten;
 
@@ -46,6 +49,7 @@ class BaseGame:
         snapshot = self.debug_string()
         await asyncio.sleep(time_out)
         if snapshot == self.debug_string():
+            self.game_end()
             await self.graceful_shutdown(*args, **kwargs)
 
     async def graceful_shutdown(self, *args, **kwargs):
@@ -101,3 +105,6 @@ class BaseGame:
             con: asyncpg.connection.Connection  # type: ignore
             async with con.transaction():
                 await con.execute(query, self.game.value, self.channel_id, self.guild_id, score)
+
+    def game_end(self):
+        self.bot.dispatch("game_update", GameUpdateEvent(self.game, Update.REMOVE, self))

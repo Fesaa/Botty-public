@@ -64,6 +64,7 @@ class NTBPL(GameCog):
     """
     A Custom game!
     I give you an amount of letters. And you send a word that contains these letters in the same order!
+    Sending a message in a NTBPL channel will send new letters if the bot is not tracking any.
     What does this emoji mean?
     ✅: Your word was accepted
     🔁: Somebody already used this word before you!
@@ -78,15 +79,23 @@ class NTBPL(GameCog):
     def display_emoji(self) -> discord.PartialEmoji:
         return discord.PartialEmoji(name='\U0001f4db')
 
-    @commands.command(name="ntbpl")
-    async def _ntbpl(self, ctx: commands.Context, count: int = 3):
+    @commands.group(name="ntbpl")
+    @commands.guild_only()
+    async def _ntbpl(self, _):
+        ...
+
+    @_ntbpl.command(name="start")
+    async def _ntbpl_start(self, ctx: commands.Context[Botty], count: int = 3):
+        """
+        Change the running game of NTBPL (change count), or get new letters
+        """
         game = NTBPLGame(Game.NTBPL, self.bot, ctx.channel.id, ctx.guild.id, self.bot.user.id, count=count)
         self.games[ctx.channel.id] = game
         await game.new_letters(ctx.channel)
 
-    @commands.command(aliases=["cw"], no_pm=True)
+    @_ntbpl.command(name="resetwords", aliases=["rw"])
     @commands.has_permissions(manage_messages=True)
-    async def clearwords(self, ctx: commands.Context):
+    async def _ntbpl_reset_words(self, ctx: commands.Context):
         """
         Clear all used words in the channel
         """
@@ -128,7 +137,7 @@ class NTBPL(GameCog):
         if not self.bot.enchant_dictionary.check(word):
             return
 
-        if not game.letters.lower() in word.lower():
+        if game.letters.lower() not in word.lower():
             return
 
         game.current_player = msg.author.id

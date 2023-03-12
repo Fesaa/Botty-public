@@ -57,8 +57,8 @@ class HelpSelectMenu(discord.ui.Select['HelpMenu']):
             value='__index',
             description='General bot usage',
         )
-        for cog, commands in self.commands.items():
-            if not commands:
+        for cog, bot_commands in self.commands.items():
+            if not bot_commands:
                 continue
             description = cog.description.split('\n', 1)[0] or None
             emoji = getattr(cog, 'display_emoji', None)
