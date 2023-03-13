@@ -75,7 +75,6 @@ class WordSnake(GameCog):
         for game in self.games.values():
             query += " " + game.sql_values() + ",\n"
         query += "ON CONFLICT (channel_id) DO set msg_id = msg_id, current_player = current_player, count = count, last_word = last_word, mistakes = mistakes;"
-        print(query)
         async with self.bot.pool.acquire() as con:
             con: asyncpg.connection.Connection  # type: ignore
             async with con.transaction():
@@ -98,8 +97,6 @@ class WordSnake(GameCog):
                                                 last_word=game['last_word'], last_msg_id=game['msg_id'], count=game['count'], mistakes=game['mistakes'],
                                                 max_mistakes=self.max_mistakes_config[game['guild_id']])
                 self.games[game['channel_id']] = word_snake_game
-        
-        print("\n".join(game.debug_string() for game in self.games.values()))
 
     @commands.group(name="wordsnake", aliases=["ws"])
     @commands.guild_only()
@@ -122,7 +119,9 @@ class WordSnake(GameCog):
         game = WordSnakeGame(Game.WORDSNAKE, self.bot, ctx.channel.id, ctx.guild.id, ctx.author.id,
                             last_word=word, last_msg_id=ctx.message.id, count=0, mistakes=0,
                             max_mistakes=self.max_mistakes_config.get(ctx.author.id, 3))
-        
+
+        game.game_start()
+
         if len(word) > 1:
             self.to_add_words.append(self.WordToAdd(ctx.guild.id, word))
 

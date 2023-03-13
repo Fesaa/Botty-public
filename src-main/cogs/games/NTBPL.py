@@ -90,7 +90,7 @@ class NTBPL(GameCog):
         Change the running game of NTBPL (change count), or get new letters
         """
         game = NTBPLGame(Game.NTBPL, self.bot, ctx.channel.id, ctx.guild.id, self.bot.user.id, count=count)
-        self.games[ctx.channel.id] = game
+        game.game_start()
         await game.new_letters(ctx.channel)
 
     @_ntbpl.command(name="resetwords", aliases=["rw"])

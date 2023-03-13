@@ -25,6 +25,7 @@ class HigherLowerGame(BaseGame):
         self.max_number = max_number
         self.max_reply = max_reply
         self.number = randint(0, self.max_number)
+        self.game_start()
 
     def debug_string(self) -> str:
         return super().debug_string(count=self.count, max_number=self.max_number, max_reply=self.max_number,

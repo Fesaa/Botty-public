@@ -40,13 +40,15 @@ class HangManGame(BaseGame):
 
     async def start(self, ctx: commands.Context) -> None:
         self.msg: discord.Message = await ctx.send(embed=self.current_embed(), view=HangManGameView(self.bot, self))
+        self.snowflake = self.msg.id
+        self.game_start()
         await self.check_inactive(120)
 
     def debug_string(self) -> str:
         return super().debug_string(word=self.word, used_letters=self.used_letters)
 
     async def remove_player(self, player: int, interaction: discord.Interaction) -> None:
-        self.players.pop(player)
+        self.players.remove(player)
 
         if len(self.players) == 0:
             await interaction.response.edit_message(

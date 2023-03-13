@@ -38,6 +38,8 @@ class ConnectFourGame(BaseGame):
         e = self.game_embed
         e.set_footer(text="Ask someone to join you!"),
         self.msg = await ctx.send(embed=e, view=ConnectFourPreGameView(self.bot, self))
+        self.snowflake = self.msg.id
+        self.game_start()
         await self.check_inactive(120)
 
     async def graceful_shutdown(self, *args, **kwargs):

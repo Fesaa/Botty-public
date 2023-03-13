@@ -33,12 +33,12 @@ class GameCog(commands.Cog):
             return
 
         if e.update_type == Update.ADD:
-            self.games[e.game_data.channel_id] = e.game_data
+            self.games[e.game_data.snowflake] = e.game_data
             return
 
         if e.update_type == Update.REMOVE:
             try:
-                self.games.pop(e.game_data.channel_id)
+                self.games.pop(e.game_data.snowflake)
             except KeyError:
                 pass
 
@@ -51,10 +51,20 @@ class GameCog(commands.Cog):
             await e.ctx.send(f"{self.game} is listening in {','.join(map(str, self.channels))}")
 
         if e.debug_type == DebugRequest.GAMEINFO:
-            if game := self.games.get(e.snowflake, None):
-                await e.ctx.send(f"```{game.debug_string()}```")
+            if e.snowflake:
+                if game := self.games.get(e.snowflake, None):
+                    await e.ctx.send(f"```{game.debug_string()}```")
+                else:
+                    await e.ctx.send(f"No games found for snowflake {e.snowflake} for {self.game}.")
             else:
-                await e.ctx.send(f"No games found for <#{e.snowflake}>.")
+                send: str = ""
+                for game in self.games.values():
+                    debug: str = game.debug_string()
+                    if len(debug + send) < 1950:
+                        debug += send
+                    else:
+                        break
+                await e.ctx.send(send)
 
     @commands.Cog.listener()
     async def on_game_channel_update(self, e: 'GameChannelUpdateEvent'):

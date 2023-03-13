@@ -20,19 +20,20 @@ class BaseGame:
                  channel_id: int,
                  guild_id: int,
                  current_player: int,
-                 players: Optional[list[int]]
+                 players: Optional[list[int]],
+                 *,
+                 snowflake: int = None
                  ) -> None:
 
         self.game = game
         self.bot = bot
 
+        self.snowflake = snowflake or channel_id
         self.channel_id = channel_id
         self.guild_id = guild_id
 
         self.current_player = current_player
         self.players = players if players else [current_player]
-
-        self.bot.dispatch("game_update", GameUpdateEvent(self.game, Update.ADD, self))
 
     def debug_string(self, **extra) -> str:
         """Base debug string. Should be overwritten;
@@ -41,7 +42,7 @@ class BaseGame:
             return super().debug_string(#all the new stuff)
         """
         return '{' + \
-            f'game: {self.game}, guild: {self.guild_id}, channel: {self.channel_id}, current_player: {self.current_player}, players: {", ".join(map(str, self.players))}, ' + \
+            f'game: {self.game}, guild: {self.guild_id}, snowflake: {self.snowflake}, channel: {self.channel_id}, current_player: {self.current_player}, players: {", ".join(map(str, self.players))}, ' + \
             ", ".join(f"{key}: {value}" for key, value in extra.items()) + \
             '}'
 
@@ -105,6 +106,9 @@ class BaseGame:
             con: asyncpg.connection.Connection  # type: ignore
             async with con.transaction():
                 await con.execute(query, self.game.value, self.channel_id, self.guild_id, score)
+
+    def game_start(self):
+        self.bot.dispatch("game_update", GameUpdateEvent(self.game, Update.ADD, self))
 
     def game_end(self):
         self.bot.dispatch("game_update", GameUpdateEvent(self.game, Update.REMOVE, self))
