@@ -209,7 +209,6 @@ class GameSettingsModal(discord.ui.Modal):
                 }
 
         for setting, value in values.items():
-            print(setting, value)
             if value:
                 await update_game_setting(interaction, guild_id=interaction.guild_id, game_setting=setting, value=value, bot=interaction.client)
 

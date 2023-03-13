@@ -16,6 +16,7 @@ class QuestionDict(typing.TypedDict):
     question: str
     correct_answer: str
     incorrect_answers: typing.List[str]
+    custom_id: str
 
 
 class BottyInteraction(discord.Interaction):
@@ -97,6 +98,44 @@ class TriviaCog(commands.Cog):
     @property
     def display_emoji(self) -> discord.PartialEmoji:
         return discord.PartialEmoji(name='\U00002753')
+    
+    async def request_question(self, category: str) -> typing.Optional[QuestionDict]:
+        q: typing.Optional[QuestionDict] = self.get_question(category)
+        if not q:
+            return None
+
+        if len(q["correct_answer"]) > 80 or any(len(answer) > 80 for answer in q["incorrect_answers"]):
+            async with self.bot.pool.acquire() as con:
+                con: asyncpg.connection.Connection  # type: ignore
+                async with con.transaction():
+                    await con.execute("DELETE FROM trivia_questions WHERE custom_id = $1;", q["custom_id"])
+            return self.request_question(category)
+
+        return q
+
+
+    async def get_question(self, category: str) -> typing.Optional[QuestionDict]:
+        async with self.bot.pool.acquire() as con:
+            con: asyncpg.connection.Connection  # type: ignore
+            if category:
+                query = "SELECT * FROM trivia_questions WHERE category_key = $1 ORDER BY random() LIMIT 1;"
+                row = await con.fetchrow(query, category)
+            else:
+                query = "SELECT * FROM trivia_questions ORDER BY random() LIMIT 1;"
+                row = await con.fetchrow(query)  # type: ignore
+
+        if not row:
+            return None
+
+        q: QuestionDict = {}  # type: ignore
+        q["category"] = row["category"]
+        q["category_key"] = row["category_key"]
+        q["correct_answer"] = row["correct_answer"]
+        q["difficulty"] = row["difficulty"]
+        q["incorrect_answers"] = row["incorrect_answers"].split('§§§')
+        q["question"] = row["question"]
+        q["custom_id"] = row["custom_id"]
+
 
     @discord.app_commands.command(name='trivia', description="Are you brave enough to try one of my questions?")
     @discord.app_commands.choices(category=[
@@ -113,25 +152,9 @@ class TriviaCog(commands.Cog):
         You'll be presented with a question. You have 3 minutes to answer the question! 
         The correct answer is shown if you don't answer in time \U0001f642 
         """
-        async with self.bot.pool.acquire() as con:
-            con: asyncpg.connection.Connection  # type: ignore
-            if category:
-                query = "SELECT * FROM trivia_questions WHERE category_key = $1 ORDER BY random() LIMIT 1;"
-                row = await con.fetchrow(query, category)
-            else:
-                query = "SELECT * FROM trivia_questions ORDER BY random() LIMIT 1;"
-                row = await con.fetchrow(query)  # type: ignore
-
-        if not row:
+        q: typing.Optional[QuestionDict] = self.request_question(category)
+        if not q:
             return await interaction.response.send_message("No questions found, please try again.", ephemeral=True)
-
-        q: QuestionDict = {}  # type: ignore
-        q["category"] = row["category"]
-        q["category_key"] = row["category_key"]
-        q["correct_answer"] = row["correct_answer"]
-        q["difficulty"] = row["difficulty"]
-        q["incorrect_answers"] = row["incorrect_answers"].split('§§§')
-        q["question"] = row["question"]
 
         trivia_view = TriviaView(interaction.user.id, q)
         await interaction.response.send_message(embed=question_embed(q), view=trivia_view)

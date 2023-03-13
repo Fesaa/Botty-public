@@ -168,7 +168,6 @@ class Tags(commands.Cog):
         if tag_check:
             return await ctx.send("Tag already exists.")
 
-        print(guild_id, ctx.author.id, tag, desc)
         await self._add_tag(guild_id, ctx.author.id, tag, desc)
         await ctx.send("\N{OK HAND SIGN}")
 

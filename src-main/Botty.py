@@ -91,7 +91,6 @@ class Botty(commands.Bot):
             try:
                 await self.load_extension(ext.name)
             except Exception as error:
-                raise error
                 print("Failed to load extension: %s\n\n%s", ext.name, error)
 
     async def on_ready(self) -> None:
