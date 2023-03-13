@@ -96,7 +96,7 @@ class BaseGame:
         INSERT INTO leaderboards
             (game, user_id, score, channel_id, guild_id)
         VALUES
-            {", ".join(f'($1, {player}, 1, $2, $3)' for player in players)}
+            {", ".join(f'($1, {player}, $4, $2, $3)' for player in players)}
         ON CONFLICT 
             (game, user_id, channel_id)
         DO UPDATE SET
