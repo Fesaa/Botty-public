@@ -20,10 +20,10 @@ class GameChannelUpdateEvent:
 
 class GameDebugEvent:
 
-    def __init__(self, ctx: 'commands.Context', game: 'Game', debug_type: 'DebugRequest', *, channel: Optional[int]):
+    def __init__(self, ctx: 'commands.Context', game: 'Game', debug_type: 'DebugRequest', *, snowflake: Optional[int]):
         self.game = game
         self.debug_type = debug_type
-        self.channel = channel
+        self.snowflake = snowflake
         self.ctx = ctx
 
 class GameUpdateEvent:

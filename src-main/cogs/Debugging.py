@@ -1,3 +1,5 @@
+from enum import Enum
+from difflib import SequenceMatcher
 from typing import (
     Union,
     Optional
@@ -8,6 +10,18 @@ import discord
 from discord.ext import commands
 
 from Botty import Botty
+from framework import GameDebugEvent, Game, DebugRequest
+
+class EnumConverter(commands.Converter):
+
+    def __init__(self, e: Enum) -> None:
+        super().__init__()
+        self.enum = e
+
+    async def convert(self, _: commands.Context[Botty], argument: str):
+        for e in self.enum:
+            if SequenceMatcher(None, e.name.lower(), argument.lower()).ratio() > 0.75:
+                return e
 
 
 class Debugging(commands.Cog):
@@ -108,11 +122,6 @@ class Debugging(commands.Cog):
 
         await self.say_permissions(ctx, member, channel)
 
-    @_debug.command(name="game")
-    @commands.is_owner()
-    async def _framework_game_debug(self, ctx: commands.Context[Botty]):
-        ...
-
     @_debug.command(name="config")
     @commands.is_owner()
     async def _server_config(self, ctx: commands.Context, guild: Optional[discord.Guild]):
@@ -129,31 +138,10 @@ class Debugging(commands.Cog):
 
             await ctx.send("Channel IDs```" + str(channel_ids) + "```\nGame Settings```" + str(game_settings) + "```")
 
-    @_debug.command(name="channels")
+    @_debug.command(name="game")
     @commands.is_owner()
-    async def _channels_info(self, ctx: commands.Context, guild: Optional[discord.Guild]):
-        """
-        Fetch all used channels
-        """
-        if not guild:
-            guild = ctx.guild
-
-        await ctx.send("```" + ", ".join(str(i) for i in self.bot.cache.get_all_used_channels(guild.id)) + "```")
-
-    @_debug.command(name="word")
-    @commands.is_owner()
-    async def _used_word(self, ctx: commands.Context, word: str, channel: Optional[discord.TextChannel]):
-        """
-        Check if a word has been used for a game.
-        """
-        if not channel:
-            channel = ctx.channel
-
-        await ctx.send(
-            f"The word {word} has been used in {channel.mention} for NTBPL: {await self.bot.PostgreSQL.check_used_word('ntbpl', channel.id, word)}"
-            + "\n"
-            + f"The word {word} has been used in {channel.mention} for wordsnake: {await self.bot.PostgreSQL.check_used_word('wordsnake', channel.id, word)}"
-        )
+    async def _game_debug(self, ctx: commands.Context[Botty], game: EnumConverter(Game), debug_type: EnumConverter(DebugRequest), snowflake: Optional[int]):
+        self.bot.dispatch('game_debug', GameDebugEvent(ctx, game, debug_type, snowflake=snowflake))
 
 
 async def setup(bot: Botty):

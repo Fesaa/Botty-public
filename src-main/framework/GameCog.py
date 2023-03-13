@@ -51,10 +51,10 @@ class GameCog(commands.Cog):
             await e.ctx.send(f"{self.game} is listening in {','.join(map(str, self.channels))}")
 
         if e.debug_type == DebugRequest.GAMEINFO:
-            if game := self.games.get(e.channel, None):
+            if game := self.games.get(e.snowflake, None):
                 await e.ctx.send(f"```{game.debug_string()}```")
             else:
-                await e.ctx.send(f"No games found for <#{e.channel}>.")
+                await e.ctx.send(f"No games found for <#{e.snowflake}>.")
 
     @commands.Cog.listener()
     async def on_game_channel_update(self, e: 'GameChannelUpdateEvent'):
