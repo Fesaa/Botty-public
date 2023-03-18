@@ -73,7 +73,7 @@ class Tags(commands.Cog):
             con: asyncpg.connection.Connection  # type: ignore
             async with con.transaction():
                 await con.execute(
-                    "INSERT INTO tag (guild_id, tag, description, owner_id) VALUES ($1, LOWER($2), $3, $4);",
+                    "INSERT INTO tag (guild_id, tag_name, tag_description, owner_id) VALUES ($1, LOWER($2), $3, $4);",
                     guild_id,
                     tag,
                     desc,
@@ -85,7 +85,7 @@ class Tags(commands.Cog):
             con: asyncpg.connection.Connection  # type: ignore
             async with con.transaction():
                 await con.execute(
-                    "UPDATE tag SET description = $1 WHERE (guild_id = $2 OR guild_id = $3) AND tag = $4;",
+                    "UPDATE tag SET description = $1 WHERE (guild_id = $2 OR guild_id = $3) AND tag_name = $4;",
                     desc,
                     guild_id,
                     000000000000000000,
@@ -103,7 +103,7 @@ class Tags(commands.Cog):
     async def _get_tag_suggestions(self, guild_id: int, tag: str) -> typing.List[typing.Optional[str]]:
         async with self.bot.pool.acquire() as con:
             con: asyncpg.connection.Connection  # type: ignore
-            query = "SELECT tag.tag FROM tag WHERE guild_id = $1 ORDER BY similarity(tag.tag, $2);"
+            query = "SELECT tag.tag_name FROM tag WHERE guild_id = $1 ORDER BY similarity(tag.tag_name, $2);"
             tags = await con.fetch(query, guild_id, tag)
             return [tag["tag"] for tag in tags[:20]]
 
@@ -119,7 +119,7 @@ class Tags(commands.Cog):
             else:
                 fetch_query += "guild_id = $1 "
 
-            fetch_query += "AND tag = LOWER($2)"
+            fetch_query += "AND tag_name = LOWER($2)"
             return await con.fetchrow(fetch_query, guild_id, tag)
 
     @commands.group(name="tag", invoke_without_command=True)

@@ -93,14 +93,14 @@ class BaseGame:
     async def _grand_points(self, players: Iterable[int], score: int):
         query: str = \
             f"""
-        INSERT INTO leaderboards
+        INSERT INTO scoreboard
             (game, user_id, score, channel_id, guild_id)
         VALUES
             {", ".join(f'($1, {player}, $4, $2, $3)' for player in players)}
         ON CONFLICT 
             (game, user_id, channel_id)
         DO UPDATE SET
-            score = leaderboards.score + $4;
+            score = scoreboard.score + $4;
         """
         async with self.bot.pool.acquire() as con:
             con: asyncpg.connection.Connection  # type: ignore

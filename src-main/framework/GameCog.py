@@ -3,22 +3,17 @@ import discord
 from typing import TYPE_CHECKING
 
 from discord.ext import commands
+from framework.enums import Update, DebugRequest
 
 if TYPE_CHECKING:
+    from Botty import Botty
     from framework.BaseGame import BaseGame
     from framework.GameEvents import GameChannelUpdateEvent, GameDebugEvent, GameUpdateEvent
     from framework.enums import Game
 
-
-from Botty import Botty
-
-
-from framework.enums import Update, DebugRequest
-
-
 class GameCog(commands.Cog):
 
-    def __init__(self, bot: Botty, game: 'Game', limit_to_channel: bool = True):
+    def __init__(self, bot: 'Botty', game: 'Game', limit_to_channel: bool = True):
         self.bot = bot
         super().__init__()
 
@@ -26,6 +21,11 @@ class GameCog(commands.Cog):
         self.channels: list[int] = []
         self.games: dict[int, 'BaseGame'] = {}
         self.limit_to_channel = limit_to_channel
+
+    async def exec_sql(self, query: str, *val):
+        async with self.bot.pool.acquire() as con:
+            con: asyncpg.Connection
+            await con.execute(query, *val)
 
     @commands.Cog.listener()
     async def on_game_update(self, e: 'GameUpdateEvent'):
@@ -70,15 +70,30 @@ class GameCog(commands.Cog):
     async def on_game_channel_update(self, e: 'GameChannelUpdateEvent'):
         if e.game != self.game:
             return
+        
+        ctx = e.ctx
 
         if e.update_type == Update.ADD:
+            counter = 0
+            added_channels: list[int] = []
             for channel in e.channels:
-                self.channels.append(channel)
+                if channel not in self.channels:
+                    added_channels.append(channel)
+                    self.channels.append(channel)
+                    counter += 1
+            await self.exec_sql(f"INSERT INTO channel_ids (guild_id, channel_type, channel_id) VALUES {','.join(f'($1, $2, {channel}' for channel in added_channels)});", ctx.guild.id, e.game.value.lower())
+            await ctx.send(f'Added {counter} channels to be used for {e.game.value}!', ephemeral=True)
 
         elif e.update_type == Update.REMOVE:
+            counter = 0
+            removed_channels: list[int] = []
             for channel in e.channels:
                 if channel in self.channels:
-                    self.channels.remove(channel)
+                        removed_channels.append(channel)
+                        self.channels.remove(channel)
+                        counter += 1
+            await self.exec_sql(f"DELETE FROM channel_ids WHERE guild_id = $1 AND channel_type = $2 AND channel_id IN ({','.join(map(str, removed_channels))});", ctx.guild.id, e.game.value.lower())
+            await ctx.send(f'Removed {counter} channels to be used for {e.game.value}', ephemeral=True)
 
     async def cog_check(self, ctx: commands.Context) -> bool:
         if self.limit_to_channel:
@@ -88,14 +103,8 @@ class GameCog(commands.Cog):
         return True
 
     async def cog_load(self) -> None:
-        game_string = self.game.value
         async with self.bot.pool.acquire() as con:
             con: asyncpg.Connection
-            rows = await con.fetch(f"SELECT guild_id,{game_string} FROM channel_ids WHERE {game_string}  IS NOT NULL;")
-
+            rows = await con.fetch(f"SELECT guild_id,channel_id FROM channel_ids WHERE channel_type = $1;", self.game.value)
             for row in rows:
-                if row[game_string] == '':
-                    continue
-
-                for channel in map(int, row[game_string].split(",")):
-                    self.channels.append(channel)
+                self.channels.append(row['channel_id'])

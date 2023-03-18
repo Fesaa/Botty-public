@@ -128,13 +128,14 @@ class Debugging(commands.Cog):
         """
         Fetch a servers config
         """
+        # TODO Fix up with new db schema & make sure it doesn't overflow 2000 chars dc msg limit
         if not guild:
             guild = ctx.guild
 
         async with self.bot.pool.acquire() as con:
             con: asyncpg.connection.Connection  # type: ignore
             channel_ids = await con.fetchrow("SELECT * FROM channel_ids WHERE guild_id = $1;", guild.id)
-            game_settings = await con.fetchrow("SELECT * FROM game_settings WHERE guild_id = $1", guild.id)
+            game_settings = await con.fetchrow("SELECT * FROM guild_settings WHERE guild_id = $1", guild.id)
 
             await ctx.send("Channel IDs```" + str(channel_ids) + "```\nGame Settings```" + str(game_settings) + "```")
 

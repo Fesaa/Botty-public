@@ -9,26 +9,27 @@ from Botty import Botty
 from framework import (
     Game,
     GameCog,
-    BaseGame
+    BaseGame,
+    GameConfigUpdateEvent,
+    GameSetting
 )
 
 
 class WordSnakeGame(BaseGame):
 
-    def __init__(self, game: Game, bot: Botty, channel_id: int, guild_id: int, current_player: int, *, last_word: str, last_msg_id: int, count: int, mistakes: int, max_mistakes: int) -> None:
+    def __init__(self, game: Game, bot: Botty, channel_id: int, guild_id: int, current_player: int, *, last_word: str, last_msg_id: int, count: int, mistakes: int) -> None:
         super().__init__(game, bot, channel_id, guild_id, current_player, None)
 
         self.last_word = last_word
         self.last_msg_id = last_msg_id
         self.count = count
         self.mistakes = mistakes
-        self.max_mistakes = max_mistakes
 
     def debug_string(self) -> str:
-        return super().debug_string(last_word=self.last_word, last_msg_id=self.last_msg_id, count=self.count, mistakes=self.mistakes)
+        return super().debug_string(last_word=self.last_word, last_msg_id=self.last_msg_id, count=self.count)
 
     def sql_values(self) -> str:
-        return f'({self.guild_id}, {self.channel_id}, {self.last_msg_id}, {self.current_player}, {self.count}, {self.last_word}, {self.mistakes})'
+        return f"({self.guild_id}, {self.channel_id}, {self.last_msg_id}, {self.current_player}, {self.count}, '{self.last_word}', {self.mistakes})"
 
     async def check_used(self, word: str) -> bool:
         async with self.bot.pool.acquire() as con:
@@ -38,7 +39,7 @@ class WordSnakeGame(BaseGame):
             SELECT
                 word
             FROM
-                usedwords
+                used_words
             WHERE
                 game = $1
             AND
@@ -54,8 +55,8 @@ class WordSnakeGame(BaseGame):
 class WordSnake(GameCog):
 
     class WordToAdd:
-        def __init__(self, guild_id: int, word: str) -> None:
-            self.guild_id = guild_id
+        def __init__(self, channel_id: int, word: str) -> None:
+            self.channel_id = channel_id
             self.word = word
 
     def __init__(self, bot: Botty):
@@ -63,22 +64,63 @@ class WordSnake(GameCog):
         self.games: dict[int, WordSnakeGame] = {}
         self.max_mistakes_config: dict[int, int] = {}
 
-        self.to_add_words: list[self.WordToAdd] = []
+        self.to_add_words: list[WordSnake.WordToAdd] = []
+
+        self.update_database.start()
 
     @property
     def display_emoji(self) -> discord.PartialEmoji:
         return discord.PartialEmoji(name='\U0001f40d')
 
-    @tasks.loop(minutes=1)
+    @commands.Cog.listener()
+    async def on_config_update(self, e: GameConfigUpdateEvent):
+        if e.setting != GameSetting.WS_WRONG_GUESSES:
+            return
+
+        if e.channels:
+            for channel in e.channels:
+                self.max_mistakes_config[channel] = e.new_value
+            return await e.ctx.send(f'Changed {e.setting.pretty()} for {len(e.channels)} to {e.new_value}.', ephemeral=True)
+        else:
+            self.max_mistakes_config[e.ctx.guild.id] = e.new_value
+            return await e.ctx.send(f'Changed {e.setting.pretty()} to {e.new_value}.', ephemeral=True)
+
+    @tasks.loop(seconds=10)
     async def update_database(self):
-        query = "INSERT INTO wordsnake (guild_id, channel_id, msg_id, current_player, count, last_word, mistakes) VALUES\n"
-        for game in self.games.values():
-            query += " " + game.sql_values() + ",\n"
-        query += "ON CONFLICT (channel_id) DO set msg_id = msg_id, current_player = current_player, count = count, last_word = last_word, mistakes = mistakes;"
-        async with self.bot.pool.acquire() as con:
-            con: asyncpg.connection.Connection  # type: ignore
-            async with con.transaction():
-                await con.execute(query)
+        if len(self.games.values()) != 0:
+            query = f"""
+            INSERT INTO
+                word_snake
+                (guild_id, channel_id, msg_id, current_player, count, last_word, mistakes)
+            VALUES
+                {','.join(game.sql_values() for game in self.games.values())}
+            ON CONFLICT
+                (channel_id)
+            DO UPDATE SET
+                msg_id = EXCLUDED.msg_id,
+                current_player = EXCLUDED.current_player,
+                count = EXCLUDED.count,
+                last_word = EXCLUDED.last_word,
+                mistakes = EXCLUDED.mistakes;
+            """
+            await self.exec_sql(query)
+
+        if len(self.to_add_words) != 0:
+            query = f"""
+            INSERT INTO
+                used_words
+                (channel_id, game, word)
+            VALUES
+                {','.join(f"('{word.channel_id}', $1, '{word.word}')" for word in self.to_add_words)};
+            """
+            await self.exec_sql(query, self.game.value)
+            self.to_add_words = []
+
+    def in_wait_list(self, word: str, channel_id: int):
+        for entry in self.to_add_words:
+            if entry.word == word and entry.channel_id == channel_id:
+                return True
+        return False
 
     async def cog_load(self) -> None:
         await super().cog_load()
@@ -86,16 +128,16 @@ class WordSnake(GameCog):
         async with self.bot.pool.acquire() as con:
             con: asyncpg.connection.Connection  # type: ignore
 
-            config = await con.fetch("SELECT guild_id,ws_wrong_guesses FROM game_settings;")
+            config = await con.fetch("SELECT guild_id,ws_wrong_guesses FROM guild_settings;")
             for c in config:
                 self.max_mistakes_config[c['guild_id']] = c['ws_wrong_guesses']
+                #TODO channel settings override
 
 
-            games = await con.fetch("SELECT * FROM wordsnake;")
+            games = await con.fetch("SELECT * FROM word_snake;")
             for game in games:
                 word_snake_game = WordSnakeGame(Game.WORDSNAKE, self.bot, game['channel_id'], game['guild_id'], game['current_player'],
-                                                last_word=game['last_word'], last_msg_id=game['msg_id'], count=game['count'], mistakes=game['mistakes'],
-                                                max_mistakes=self.max_mistakes_config[game['guild_id']])
+                                                last_word=game['last_word'], last_msg_id=game['msg_id'], count=game['count'], mistakes=game['mistakes'])
                 self.games[game['channel_id']] = word_snake_game
 
     @commands.group(name="wordsnake", aliases=["ws"])
@@ -117,13 +159,12 @@ class WordSnake(GameCog):
             return await ctx.send("This is not a word in the English language, please only use a-z and A-Z!")
 
         game = WordSnakeGame(Game.WORDSNAKE, self.bot, ctx.channel.id, ctx.guild.id, ctx.author.id,
-                            last_word=word, last_msg_id=ctx.message.id, count=0, mistakes=0,
-                            max_mistakes=self.max_mistakes_config.get(ctx.author.id, 3))
+                            last_word=word, last_msg_id=ctx.message.id, count=0, mistakes=0)
 
         game.game_start()
 
         if len(word) > 1:
-            self.to_add_words.append(self.WordToAdd(ctx.guild.id, word))
+            self.to_add_words.append(WordSnake.WordToAdd(ctx.channel.id, word))
 
         return await ctx.send(f"The game has begun! \nFind a word that starts with **{word[-1].lower()}**.")
     
@@ -139,7 +180,7 @@ class WordSnake(GameCog):
         """
         async with self.bot.pool.acquire() as con:
             con: asyncpg.Connection
-            await con.execute("DELETE FROM usedwords WHERE channel_id = $1 AND game = $2;", ctx.channel.id, self.game.value)
+            await con.execute("DELETE FROM used_words WHERE channel_id = $1 AND game = $2;", ctx.channel.id, self.game.value)
         await ctx.message.delete()
         await ctx.send("The used words have been reset.")
 
@@ -186,6 +227,9 @@ class WordSnake(GameCog):
         if msg.author.id == game.current_player:
             return await msg.delete()
 
+        if self.in_wait_list(msg.content, msg.channel.id):
+            return await msg.delete()
+
         if await game.check_used(msg.content):
             return await msg.delete()
 
@@ -193,9 +237,10 @@ class WordSnake(GameCog):
             return await msg.delete()
 
         if msg.content[0].lower() != game.last_word[-1].lower():
+            max_mistakes = self.max_mistakes_config.get(msg.channel.id, None) or self.max_mistakes_config.get(msg.guild.id, 3)
 
             if msg.content[0].lower() == game.last_word[0].lower() \
-            and game.mistakes < game.max_mistakes:
+            and game.mistakes < max_mistakes:
                 game.mistakes += 1
                 return await msg.delete()
 
@@ -210,7 +255,7 @@ class WordSnake(GameCog):
 
         game.count += 1
         game.mistakes = 0
-        self.to_add_words.append(msg.content)
+        self.to_add_words.append(WordSnake.WordToAdd(msg.channel.id, msg.content))
 
         game.last_msg_id = msg.id
         game.current_player = msg.author.id

@@ -116,7 +116,7 @@ class NTBPL(GameCog):
         if msg.channel.id not in self.channels:
             return
 
-        if msg.content.startswith(self.bot.cache.get_command_prefix(msg.guild.id)):
+        if msg.content.startswith(self.bot.prefixes.get(msg.guild.id)):
             return
 
         game = self.games.get(msg.channel.id, None)

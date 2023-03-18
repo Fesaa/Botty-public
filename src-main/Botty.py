@@ -2,15 +2,14 @@ from itertools import chain
 from pkgutil import iter_modules
 from collections import Counter
 
+import aiohttp
 import asyncpg
 import discord
 import enchant
 import toml  # type: ignore
 from discord.ext import commands
 
-from BottyCache import BottyCache
 from BottyTypes import Config
-from utils.PostgreSQL import PostgreSQL
 
 
 class Defaults:
@@ -26,16 +25,15 @@ class Defaults:
 class Botty(commands.Bot):
 
     bot_app_info: discord.AppInfo
-    command_stats: Counter[str]
-    command_types_used: Counter[bool]
 
     def __init__(self) -> None:
 
-        self.pool:asyncpg.Pool = ...
-        self.PostgreSQL: PostgreSQL = ...
+        self.pool: asyncpg.Pool = ...
+
+        self.httpClientSession: aiohttp.ClientSession = aiohttp.ClientSession()
 
         config: Config = toml.load("config.toml")
-        self.config = config
+        self.config: Config = config
 
         with open("utils/words.txt", 'rt', encoding='utf-8') as file:
             self.words = [line.strip().split() for line in file.readlines()]
@@ -43,8 +41,6 @@ class Botty(commands.Bot):
         self.enchant_dictionary = enchant.Dict("en_GB")
 
         self.default_values = Defaults(self.config)
-
-        self.cache = BottyCache()
 
         owner_ids = self.config["BOTTY"]["OWNER_IDS"]
 
@@ -78,14 +74,19 @@ class Botty(commands.Bot):
         return super().run(self.config["DISCORD"]["TOKEN"], *args, **kwargs)
 
     async def setup_hook(self) -> None:
-
-        self.pool: asyncpg.Pool = await asyncpg.create_pool(**self.config["SERVER"]["POSTGRESQL"])
-        self.PostgreSQL: PostgreSQL = PostgreSQL(self.pool)
-
         self.bot_app_info: discord.AppInfo = await self.application_info()
 
+        self.pool: asyncpg.Pool = await asyncpg.create_pool(**self.config["SERVER"]["POSTGRESQL"])
+
+        self.prefixes: dict[int, list[str]] = {}
         async with self.pool.acquire() as con:
-            await self.build_cache(con)
+            con: asyncpg.Connection
+            prefixes_data = await con.fetch("SELECT guild_id,prefix FROM prefixes")
+            for prefix_info in prefixes_data:
+                if self.prefixes.get(prefix_info["guild_id"], None):
+                    self.prefixes[prefix_info["guild_id"]].append(prefix_info["prefix"])
+                else:
+                    self.prefixes[prefix_info["guild_id"]] = [prefix_info["prefix"]]
 
         for ext in chain(iter_modules(["cogs"], prefix='cogs.'), iter_modules(["cogs/games"], prefix='cogs.games.')):
             try:
@@ -104,34 +105,14 @@ class Botty(commands.Bot):
         if not msg.guild:
             prefixes = commands.when_mentioned_or(self.config["DISCORD"]["DEFAULT_PREFIX"])(self, msg)
         else:
-            prefixes = commands.when_mentioned_or(self.cache.get_command_prefix(msg.guild.id))(self, msg)
+            prefixes = commands.when_mentioned_or(*self.prefixes.get(msg.guild.id, [self.config["DISCORD"]["DEFAULT_PREFIX"]]))(self, msg)
 
         if msg.author.id in self.owner_ids:
             prefixes.append("?")
 
         return prefixes
 
-    async def build_cache(self, con: asyncpg.connection.Connection) -> None:
-        # Prefixes
-        all_prefixes = await con.fetch("SELECT * FROM command_prefix;")
-        for row in all_prefixes:
-            self.cache.update_command_prefix(row["guild_id"], row["command_prefix"])
-
-        # Channel Ids
-        all_channel_ids = await con.fetch("SELECT * FROM channel_ids;")
-        for row in all_channel_ids:
-            self.cache.update_channel_id(
-                row["guild_id"],
-                "cubelvl",
-                row["cubelvl"].split(",") if row["cubelvl"] else [],
-            )
-            self.cache.update_channel_id(
-                row["guild_id"], "log", row["log"].split(",") if row["log"] else []
-            )
-
-        # Game Settings
-        all_game_settings = await con.fetch("SELECT * FROM game_settings;")
-        for row in all_game_settings:
-            self.cache.update_game_settings(
-                row["guild_id"], "max_lb_size", row["max_lb_size"]
-            )
+    async def exec_sql(self, query: str, *val):
+        async with self.bot.pool.acquire() as con:
+            con: asyncpg.Connection
+            await con.execute(query, *val)
