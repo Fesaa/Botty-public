@@ -45,7 +45,8 @@ CREATE TABLE IF NOT EXISTS trivia_questions (
     id SERIAL PRIMARY KEY,
     category VARCHAR NOT NULL,
     category_key VARCHAR NOT NULL,
-    question VARCHAR NOT NULL
+    question VARCHAR NOT NULL,
+    difficulty VARCHAR NOT NULL
 );
 
 CREATE TABLE IF NOT EXISTS trivia_answers (

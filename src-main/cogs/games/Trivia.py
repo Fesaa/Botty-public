@@ -36,7 +36,21 @@ class MultipleChoiceButton(discord.ui.Button):
     async def callback(self, interaction: BottyInteraction):  # type: ignore
         self.view.responded = True  # type: ignore
         if self.correct:
-            await interaction.client.PostgreSQL.update_lb("trivia", interaction.channel_id, interaction.user.id, interaction.guild_id)
+
+            async with interaction.client.pool.acquire() as con:
+                con: asyncpg.Connection
+                query: str = f"""
+                    INSERT INTO scoreboard
+                        (game, user_id, score, channel_id, guild_id)
+                    VALUES
+                        (trivia, $1, 1, $2, $3)
+                    ON CONFLICT 
+                        (game, user_id, channel_id)
+                    DO UPDATE SET
+                        score = scoreboard.score + 1;
+                    """
+                async with con.transaction():
+                    con.execute(query, interaction.user.id, interaction.channel_id, interaction.guild_id)
             e = question_embed(self.q, 0x00ff7f)
             e.add_field(name="Answered correctly \U0001f973!", value=f"{self.label}")
 
@@ -100,7 +114,7 @@ class TriviaCog(commands.Cog):
         return discord.PartialEmoji(name='\U00002753')
     
     async def request_question(self, category: str) -> typing.Optional[QuestionDict]:
-        q: typing.Optional[QuestionDict] = self.get_question(category)
+        q: typing.Optional[QuestionDict] = await self.get_question(category)
         if not q:
             return None
 
@@ -118,23 +132,56 @@ class TriviaCog(commands.Cog):
         async with self.bot.pool.acquire() as con:
             con: asyncpg.connection.Connection  # type: ignore
             if category:
-                query = "SELECT * FROM trivia_questions WHERE category_key = $1 ORDER BY random() LIMIT 1;"
-                row = await con.fetchrow(query, category)
+                query = """
+                SELECT
+                    tq.question,tq.category,ta.answer,ta.correct,tq.difficulty
+                FROM
+                    trivia_questions as tq
+                JOIN
+                    trivia_answers as ta
+                ON
+                    ta.id = tq.id
+                WHERE
+                    tq.category_key = $1
+                ORDER BY
+                    random()
+                LIMIT
+                    4;
+                """
+                rows = await con.fetch(query, category)
             else:
-                query = "SELECT * FROM trivia_questions ORDER BY random() LIMIT 1;"
-                row = await con.fetchrow(query)  # type: ignore
+                query = """
+                SELECT
+                    tq.question,tq.category,ta.answer,ta.correct,tq.difficulty
+                FROM
+                    trivia_questions as tq
+                JOIN
+                    trivia_answers as ta
+                ON
+                    ta.id = tq.id
+                ORDER BY
+                    random()
+                LIMIT
+                    4;
+                """
+                rows = await con.fetch(query)
 
-        if not row:
-            return None
+            if not rows:
+                return None
 
         q: QuestionDict = {}  # type: ignore
-        q["category"] = row["category"]
-        q["category_key"] = row["category_key"]
-        q["correct_answer"] = row["correct_answer"]
-        q["difficulty"] = row["difficulty"]
-        q["incorrect_answers"] = row["incorrect_answers"].split('§§§')
-        q["question"] = row["question"]
-        q["custom_id"] = row["custom_id"]
+        q["incorrect_answers"] = []
+
+        for row in rows:
+            q["category"] = row["category"]
+            q["question"] = row["question"]
+            q["difficulty"] = row["difficulty"]
+            if row['correct']:
+                q["correct_answer"] = row["answer"]
+            else:
+                q["incorrect_answers"].append(row["answer"])
+
+        return q
 
 
     @discord.app_commands.command(name='trivia', description="Are you brave enough to try one of my questions?")
@@ -152,7 +199,7 @@ class TriviaCog(commands.Cog):
         You'll be presented with a question. You have 3 minutes to answer the question! 
         The correct answer is shown if you don't answer in time \U0001f642 
         """
-        q: typing.Optional[QuestionDict] = self.request_question(category)
+        q: typing.Optional[QuestionDict] = await self.request_question(category)
         if not q:
             return await interaction.response.send_message("No questions found, please try again.", ephemeral=True)
 
