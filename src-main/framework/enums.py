@@ -1,5 +1,6 @@
 from enum import Enum
 
+import discord
 
 class Game(Enum):
     WORDSNAKE = "wordsnake"
@@ -31,3 +32,13 @@ class Update(Enum):
 class DebugRequest(Enum):
     CHANNELS = 0
     GAMEINFO = 1
+
+
+CHANNEL_TYPES_CHOICE = [
+        discord.app_commands.Choice(name="WordSnake", value=Game.WORDSNAKE.value),
+        discord.app_commands.Choice(name="NTBPL", value=Game.NTBPL.value),
+        discord.app_commands.Choice(name="HigherLower", value=Game.HIGHERLOWER.value),
+        discord.app_commands.Choice(name="ConnectFour", value=Game.CONNECTFOUR.value),
+        discord.app_commands.Choice(name="HangMan", value=Game.HANGMAN.value),
+        discord.app_commands.Choice(name="CubeLvl", value="cubelvl"),
+    ]

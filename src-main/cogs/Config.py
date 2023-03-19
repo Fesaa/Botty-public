@@ -1,6 +1,5 @@
 from typing import (
     TYPE_CHECKING,
-    Literal,
     Optional
 )
 
@@ -8,19 +7,19 @@ import asyncpg
 import discord
 from discord.ext import commands
 
-from framework import Game, GameChannelUpdateEvent, Update, GameSetting, GameConfigUpdateEvent
+from framework import (
+    Game,
+    GameChannelUpdateEvent,
+    Update,
+    GameSetting,
+    GameConfigUpdateEvent,
+    CHANNEL_TYPES_CHOICE
+)
 
 if TYPE_CHECKING:
     from Botty import Botty
 
-CHANNEL_TYPES_CHOICE = [
-        discord.app_commands.Choice(name="WordSnake", value=Game.WORDSNAKE.value),
-        discord.app_commands.Choice(name="NTBPL", value=Game.NTBPL.value),
-        discord.app_commands.Choice(name="HigherLower", value=Game.HIGHERLOWER.value),
-        discord.app_commands.Choice(name="ConnectFour", value=Game.CONNECTFOUR.value),
-        discord.app_commands.Choice(name="HangMan", value=Game.HANGMAN.value),
-        discord.app_commands.Choice(name="CubeLvl", value="cubelvl"),
-    ]
+
 GAME_SETTINGS_CHOICE = [
         discord.app_commands.Choice(
             name="Maximum amount of player displayed on a scoreboard (Default: 15, Max: 20)",

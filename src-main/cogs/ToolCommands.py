@@ -2,6 +2,7 @@ import datetime
 import re
 import typing
 
+import asyncpg
 import aiohttp
 import discord
 from discord import Embed
@@ -10,6 +11,7 @@ from discord.ext import commands, menus  # type: ignore
 import utils.time as time
 from Botty import Botty
 from utils.MyMenuPages import MyMenuPages
+from framework import GameSetting, GameConfigUpdateEvent, CHANNEL_TYPES_CHOICE, Game
 
 
 class UrbanDictionaryPageSource(menus.ListPageSource):
@@ -68,9 +70,59 @@ class ToolCommands(commands.Cog):
         self.bot = bot
         super().__init__()
 
+        self.lb_sizes: dict[int, int] = {}
+
+    async def cog_load(self) -> None:
+        async with self.bot.pool.acquire() as con:
+            con: asyncpg.Connection
+            guild_globals = await con.fetch("SELECT guild_id,lb_size FROM guild_settings;")
+            for guild in guild_globals:
+                self.lb_sizes[guild['guild_id']] = guild['lb_size']
+
+            channel_overwrites = await con.fetch('SELECT channel_id,setting_value FROM channel_settings WHERE setting_type = $1;', GameSetting.MAX_LB_SIZE.value)
+            for channel in channel_overwrites:
+                self.lb_sizes[channel['channel_id']] = channel['setting_value']
+
     @property
     def display_emoji(self) -> discord.PartialEmoji:
         return discord.PartialEmoji(name='\U0001f6e0')
+
+    @commands.Cog.listener()
+    async def on_config_update(self, e: GameConfigUpdateEvent):
+        if e.setting != GameSetting.MAX_LB_SIZE:
+            return
+
+        if e.channels:
+            for channel in e.channels:
+                self.lb_sizes[channel] = e.new_value
+            query = f"""
+            INSERT INTO
+                channel_settings
+                (channel_id, setting_value,setting_type)
+            VALUES
+                {','.join(f'({channel}, $1, $2)' for channel in e.channels)}
+            ON CONFLICT
+                (channel_id, setting_type)
+            DO UPDATE SET
+                setting_value = EXCLUDED.setting_value;
+            """
+            await self.bot.exec_sql(query, e.new_value, GameSetting.MAX_LB_SIZE.value)
+            await e.ctx.send(f'Updated {e.setting.pretty()} to {e.new_value} in {len(e.channels)} channels.')
+        else:
+            query = f"""
+            INSERT INTO
+                channel_settings
+                (channel_id, setting_value,setting_type)
+            VALUES
+                ($1, $2, $3)
+            ON CONFLICT
+                (channel_id, setting_type)
+            DO UPDATE SET
+                setting_value = EXCLUDED.setting_value;
+            """
+            await self.bot.exec_sql(query, e.ctx.guild.id, e.new_value, GameSetting.MAX_LB_SIZE.value)
+            await e.ctx.send(f'Updated {e.setting.pretty()} to {e.new_value}.')
+
 
     @commands.command(aliases=["avt"], no_pm=True)
     @commands.cooldown(10, 60, commands.BucketType.guild)
@@ -126,9 +178,7 @@ class ToolCommands(commands.Cog):
         """
         user = user or ctx.author
         embed = Embed()
-        roles = [
-            role.name.replace("@", "@\u200b") for role in getattr(user, "roles", [])
-        ]
+        roles = [role.name.replace("@", "@\u200b") for role in getattr(user, "roles", [])]
         embed.set_author(name=str(user))
 
         def format_date(dt: datetime.datetime):
@@ -187,35 +237,50 @@ class ToolCommands(commands.Cog):
         async with aiohttp.ClientSession() as cs:
             async with cs.get(url, params={"term": word}) as resp:
                 if resp.status != 200:
-                    return await ctx.send(
-                        f"An error occurred: {resp.status} {resp.reason}"
-                    )
+                    return await ctx.send(f"An error occurred: {resp.status} {resp.reason}")
 
                 js = await resp.json()
                 data = js.get("list", [])
                 if not data:
                     return await ctx.send("No results found, sorry.")
 
-        pages = MyMenuPages(
-            UrbanDictionaryPageSource(data), ctx=ctx, delete_message_after=True
-        )
+        pages = MyMenuPages(UrbanDictionaryPageSource(data), ctx=ctx, delete_message_after=True)
         await pages.start(ctx)
 
-    @discord.app_commands.command(
-        name="scoreboard",
-        description="Fetch a scoreboard"
-    )
+
+    async def get_lb_data(self, channel: int, *, game: str) -> list[asyncpg.Record]:
+        async with self.bot.pool.acquire() as con:
+            con: asyncpg.Connection
+            if game:
+                query = """
+                SELECT 
+                    user_id,score
+                FROM
+                    scoreboard
+                WHERE
+                    channel_id = $1
+                AND
+                    user_id != $2;
+                """
+                return await con.fetch(query, channel, self.bot.user.id)
+            else:
+                query = """
+                SELECT 
+                    user_id,score
+                FROM
+                    scoreboard
+                WHERE
+                    channel_id = $1
+                AND
+                    game = $2
+                AND
+                    user_id != $3;
+                """
+                return await con.fetch(query, channel, game, self.bot.user.id)
+
+    @commands.hybrid_command(name="scoreboard",description="Fetch a scoreboard")
     @discord.app_commands.describe(channel="In a specific channel?", game="For a specific game?")
-    @discord.app_commands.choices(
-        game=[
-            discord.app_commands.Choice(name="ConnectFour", value="connectfour"),
-            discord.app_commands.Choice(name="HangMan", value="hangman"),
-            discord.app_commands.Choice(name="HigherLower", value="higherlower"),
-            discord.app_commands.Choice(name="NTBPL", value="ntbpl"),
-            discord.app_commands.Choice(name="Wordsnake", value="wordsnake"),
-            discord.app_commands.Choice(name="Trivia", value="trivia")
-        ]
-    )
+    @discord.app_commands.choices(game=CHANNEL_TYPES_CHOICE)
     @discord.app_commands.guild_only()
     async def _leaderboard(
         self,
@@ -229,32 +294,21 @@ class ToolCommands(commands.Cog):
         """
         if not interaction.guild or not interaction.channel:
             return
-        max_lb_size = self.bot.cache.get_game_settings(interaction.guild.id, "max_lb_size") or 15
+        max_lb_size = self.lb_sizes.get(interaction.channel_id, None) or self.lb_sizes.get(interaction.guild_id, 15)
 
-        if not channel and not game:
-            game_type = self.bot.cache.check_channel_game(interaction.guild.id, interaction.channel.id)
-            channel = interaction.channel  # type: ignore
+        if not channel:
+            channel = interaction.channel
 
-            if not game_type:
-                return await interaction.response.send_message("Your requests is too ambiguous, please select more options.", ephemeral=True)
-            
-            if len(game_type) > 1:
-                data = await self.bot.PostgreSQL.get_lb(interaction.guild.id, max_lb_size, channel_id=channel.id)  # type: ignore
-                title = f"⭐ Scores for all games in {channel.name}🌟"  # type: ignore
-            else:
-                data = await self.bot.PostgreSQL.get_lb(interaction.guild.id, max_lb_size, channel_id=channel.id, game=game_type[0])  # type: ignore
-                title = f"⭐ {game_type[0]} scores for {channel.name}🌟"  # type: ignore
-        
-        elif game and not channel:
-            channel = interaction.channel  # type: ignore
-            data = await self.bot.PostgreSQL.get_lb(interaction.guild.id, max_lb_size, game=game)
-            title = f"⭐ Global scores for {game}🌟"
-        elif channel and not game:
-            data = await self.bot.PostgreSQL.get_lb(interaction.guild.id, max_lb_size, channel_id=channel.id)
+        if not game:
             title = f"⭐ Scores for all games in {channel.name}🌟"
         else:
-            data = await self.bot.PostgreSQL.get_lb(interaction.guild.id, max_lb_size, channel_id=channel.id, game=game)  #  type: ignore
-            title = f"⭐ {game} scores for {channel.name}🌟"  # type: ignore
+            title = f"⭐ {game} scores for {channel.name}🌟"
+            try:
+                game = Game[game.upper()]
+            except KeyError:
+                return await interaction.response.send_message("Game not found. Please try again", ephemeral=True)
+
+        data = await self.get_lb_data(channel, game=game)
 
         if not data:
             return await interaction.response.send_message("No scores where found for you query \U0001f641", ephemeral=True)
