@@ -150,6 +150,17 @@ class ConfigCog(commands.Cog):
 
         #TODO implement !!! See ConfigHandler for paginator !!!
 
+
+    def config_value_transformer(setting: GameSetting, value: int) -> int:
+        if setting == GameSetting.HL_MAX_NUMBER:
+            return abs(value)
+        if setting == GameSetting.HL_MAX_REPLY:
+            return abs(value)
+        if setting == GameSetting.MAX_LB_SIZE:
+            return max(min(abs(value), 20), 5)
+        if setting == GameSetting.WS_WRONG_GUESSES:
+            return min(abs(value), 5)
+
     @_config_group.command(name="set")
     @discord.app_commands.choices(setting=GAME_SETTINGS_CHOICE)
     @discord.app_commands.describe(channel="Overwrites the guild setting in this specific channel")
@@ -160,6 +171,8 @@ class ConfigCog(commands.Cog):
             setting: GameSetting = GameSetting[setting.upper()]
         except KeyError:
             return await ctx.send("Invalid setting. Please try again.", ephemeral=True)
+
+        value = self.config_value_transformer(value)
 
         if channel:
             e = GameConfigUpdateEvent(setting, ctx, value, channel.id)
