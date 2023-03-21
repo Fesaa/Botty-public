@@ -6,4 +6,5 @@ venv/
 *.toml
 *.swp
 .vscode
-
+target
+out
