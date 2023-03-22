@@ -1,6 +1,5 @@
 from itertools import chain
 from pkgutil import iter_modules
-from collections import Counter
 
 import aiohttp
 import asyncpg
@@ -113,6 +112,6 @@ class Botty(commands.Bot):
         return prefixes
 
     async def exec_sql(self, query: str, *val):
-        async with self.bot.pool.acquire() as con:
+        async with self.pool.acquire() as con:
             con: asyncpg.Connection
             await con.execute(query, *val)

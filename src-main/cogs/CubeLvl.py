@@ -1,11 +1,17 @@
 from math import ceil, sqrt
 
+import aiohttp
 import discord
 from discord import app_commands, DMChannel
 from discord.ext import commands
 
+
+from io import BytesIO
+from PIL import Image
+
 from Botty import Botty
 from utils import clc
+from utils.time import human_timedelta
 
 
 class CubeLvl(commands.Cog):
@@ -22,7 +28,7 @@ class CubeLvl(commands.Cog):
     async def cog_check(self, ctx: commands.Context) -> bool:
         if isinstance(ctx.channel, DMChannel) or ctx.author.bot:
             return False
-        return ctx.channel.id in self.bot.cache.get_channel_id(ctx.guild.id, "cubelvl")
+        return True
 
     @commands.hybrid_group(name="cubecraft")
     async def _cube(self, ctx: commands.Context) -> None:
@@ -44,26 +50,30 @@ class CubeLvl(commands.Cog):
         Information on levels, and their differences.
         """
 
-        if level2 < level1:
-            return await ctx.send(
-                f"The level you want to reach ({level2}) must be higher than your current level ({level1}).",
-                ephemeral=True,
-            )
+        if level1 == 1 and current_xp == 0:
+            url = f"http://127.0.0.1:8080/image-renderer/cube-level&level={level2}"
+        else:
+            url = f"http://127.0.0.1:8080/image-renderer/cube-level&level1={level1},level2={level2},current_xp={current_xp}"
 
-        lvl1 = clc.Cubelvl(level1)
-        lvl2 = clc.Cubelvl(level2)
-        xp = lvl2() - (lvl1() + abs(current_xp))
-        levelx = clc.Cubelvl(clc.lvlxp(xp))
-        await ctx.send(
-            f"You still need **{xp}** xp to reach level **{level2}** from level **{level1}**"
-            f"\nThat's the same as winning **{levelx.win('ew')}** Eggwars games!"
-            f"\nThat's the same as winning **{levelx.win('sw')}** Skywars games!"
-            f"\nThat's the same as winning **{levelx.win('li')}** Lucky Island games!"
-            f"\nThat's the same as **{levelx.win('mt')}** thanks from a multiplier!"
-            f"\nAssume you get 400-700 thank a multiplier: \nYou'd need "
-            f"**{ceil(clc.m(levelx(), 700))}** - **{ceil(clc.m(levelx(), 400))}**"
-            f" multipliers to reach the level!"
-        )
+
+        async with ctx.typing():
+            t = discord.utils.utcnow()
+            async with aiohttp.ClientSession() as cs:
+                async with cs.get(url) as r:
+                    if r.status == 200:
+                        with Image.open(BytesIO(await r.read())) as img:
+                            buffer = BytesIO()
+                            img.save(buffer, "png")
+                            buffer.seek(0)
+
+                        e = discord.Embed(colour=discord.Colour.blurple(), timestamp=discord.utils.utcnow(), title="Cube Level")
+                        e.set_image(url="attachment://image.png")
+                        now = discord.utils.utcnow()
+                        e.set_footer(text=f'It took {round((now - t).microseconds/1000)} ms to generate this image! {human_timedelta(now, accuracy=None, brief=False, suffix=False)}')
+                        e.set_author(name=ctx.author.name, icon_url=getattr(ctx.author.avatar, "url", self.bot.user.avatar.url))
+                        await ctx.send(embed=e, file=discord.File(fp=buffer, filename="image.png"))
+                    else:
+                        await ctx.send(f"An error occurred. Please try again. {await r.read()}")
 
     @_cube.command(
         name="multies",
