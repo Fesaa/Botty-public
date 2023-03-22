@@ -135,7 +135,7 @@ fn apply_xp_requirements(
         format!("Or {} SkyWars games,", total_xp / 125 as u32),
         format!("Or {} Lucky Islands games,", total_xp / 120 as u32),
         format!("Or {} /thanks from multipliers,", thanks_from_multies),
-        format!("Which is {}/{} multipliers", thanks_from_multies / 700 as u32, thanks_from_multies/400 as u32),
+        format!("Which is {}/{} multipliers", thanks_from_multies / 700 as u32 + 1, thanks_from_multies/400 as u32 + 1),
         format!("   at 400/700 thanks a multiplier.")
     ];
 
