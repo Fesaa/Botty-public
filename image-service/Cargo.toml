@@ -1,0 +1,6 @@
+[workspace]
+
+members = [
+    "image-api",
+    "image-renderer",
+]
