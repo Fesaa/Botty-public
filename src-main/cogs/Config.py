@@ -58,6 +58,18 @@ class ConfigCog(commands.Cog):
             con: asyncpg.Connection
             await con.execute(query, *val)
 
+    @commands.Cog.listener
+    async def on_guild_join(self, guild: discord.Guild):
+        defaults = self.bot.default_values
+        await self.exec_sql("INSERT INTO prefixes (guild_id, prefix) VALUES ($1, $2);", guild.id, self.bot.config["DISCORD"]["DEFAULT_PREFIX"])
+        await self.exec_sql("""
+        INSERT INTO
+            guild_settings
+            (guild_id, lb_size, hl_max_reply, ws_wrong_guesses, hl_max_number)
+        VALUES
+            ($1, $2, $3, $4, $5);
+        """, guild.id, defaults.default_lb_size, defaults.default_max_reply, defaults.default_ws_guesses, defaults.default_hl_max_number)
+
     @commands.command(name="prefix")
     @commands.guild_only()
     async def _prefix(self, ctx: commands.Context['Botty']):
