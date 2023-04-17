@@ -51,9 +51,9 @@ class CubeLvl(commands.Cog):
         """
 
         if level1 == 1 and current_xp == 0:
-            url = f"http://127.0.0.1:8080/image-renderer/cube-level&level={level2}"
+            url = f"http://127.0.0.1:8080/image-renderer/cube-level/single?level={level2}"
         else:
-            url = f"http://127.0.0.1:8080/image-renderer/cube-level&level1={level1},level2={level2},current_xp={current_xp}"
+            url = f"http://127.0.0.1:8080/image-renderer/cube-level/multi?level1={level1},level2={level2},current_xp={current_xp}"
 
 
         async with ctx.typing():
