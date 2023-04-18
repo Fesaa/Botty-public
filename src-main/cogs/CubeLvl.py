@@ -53,7 +53,7 @@ class CubeLvl(commands.Cog):
         if level1 == 1 and current_xp == 0:
             url = f"http://127.0.0.1:8080/image-renderer/cube-level/single?level={level2}"
         else:
-            url = f"http://127.0.0.1:8080/image-renderer/cube-level/multi?level1={level1},level2={level2},current_xp={current_xp}"
+            url = f"http://127.0.0.1:8080/image-renderer/cube-level/multi?level1={level1}&level2={level2}&current_xp={current_xp}"
 
 
         async with ctx.typing():
@@ -73,7 +73,7 @@ class CubeLvl(commands.Cog):
                         e.set_author(name=ctx.author.name, icon_url=getattr(ctx.author.avatar, "url", self.bot.user.avatar.url))
                         await ctx.send(embed=e, file=discord.File(fp=buffer, filename="image.png"))
                     else:
-                        await ctx.send(f"An error occurred. Please try again. {await r.read()}")
+                        await ctx.send(f"An error occurred. Please try again. `{await r.read()}`")
 
     @_cube.command(
         name="multies",

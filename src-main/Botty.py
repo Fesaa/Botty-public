@@ -29,7 +29,7 @@ class Botty(commands.Bot):
 
         self.pool: asyncpg.Pool = ...
 
-        self.httpClientSession: aiohttp.ClientSession = aiohttp.ClientSession()
+        self.httpClientSession: aiohttp.ClientSession = ...
 
         config: Config = toml.load("config.toml")
         self.config: Config = config
@@ -73,6 +73,7 @@ class Botty(commands.Bot):
         return super().run(self.config["DISCORD"]["TOKEN"], *args, **kwargs)
 
     async def setup_hook(self) -> None:
+        self.httpClientSession = aiohttp.ClientSession()
         self.bot_app_info: discord.AppInfo = await self.application_info()
 
         self.pool: asyncpg.Pool = await asyncpg.create_pool(**self.config["SERVER"]["POSTGRESQL"])
