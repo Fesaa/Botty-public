@@ -35,7 +35,7 @@ class NTBPLGame(BaseGame):
             SELECT
                 word
             FROM
-                usedwords
+                used_words
             WHERE
                 game = $1
             AND
@@ -101,7 +101,7 @@ class NTBPL(GameCog):
         """
         async with self.bot.pool.acquire() as con:
             con: asyncpg.Connection
-            await con.execute("DELETE FROM usedwords WHERE channel_id = $1 AND game = $2;", ctx.channel.id, self.game.value)
+            await con.execute("DELETE FROM used_words WHERE channel_id = $1 AND game = $2;", ctx.channel.id, self.game.value)
         await ctx.message.delete()
         await ctx.send("The used words have been reset.")
 
