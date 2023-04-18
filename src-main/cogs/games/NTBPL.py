@@ -143,6 +143,7 @@ class NTBPL(GameCog):
         game.current_player = msg.author.id
         await game.grand_current_player(1)
         await game.new_letters(msg.channel)
+        await msg.add_reaction("✅")
 
 
 async def setup(bot: Botty):
