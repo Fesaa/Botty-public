@@ -317,7 +317,7 @@ class ToolCommands(commands.Cog):
             return await interaction.send("No scores where found for you query \U0001f641", ephemeral=True)
         description = ""
         lb_prefix = ["🥇", "🥈", "🥉"] + [str(i) for i in range(4, max_lb_size + 1)]
-        for index, entry in enumerate(data):
+        for index, entry in enumerate(data[:max_lb_size]):
             description += f"{lb_prefix[index]}: <@{entry['user_id']}> - **{entry.get('score', entry.get('sum', 'unknown'))}**\n"
         e = Embed(title=title, description=description, color=0xAD3998)
         await interaction.send(embed=e)
