@@ -50,7 +50,7 @@ class MultipleChoiceButton(discord.ui.Button):
                         score = scoreboard.score + 1;
                     """
                 async with con.transaction():
-                    con.execute(query, interaction.user.id, interaction.channel_id, interaction.guild_id)
+                    await con.execute(query, interaction.user.id, interaction.channel_id, interaction.guild_id)
             e = question_embed(self.q, 0x00ff7f)
             e.add_field(name="Answered correctly \U0001f973!", value=f"{self.label}")
 

@@ -251,22 +251,24 @@ class ToolCommands(commands.Cog):
     async def get_lb_data(self, channel: int, *, game: str) -> list[asyncpg.Record]:
         async with self.bot.pool.acquire() as con:
             con: asyncpg.Connection
-            if game:
+            if not game:
                 query = """
                 SELECT 
-                    user_id,score
+                    user_id,SUM(score)
                 FROM
                     scoreboard
                 WHERE
                     channel_id = $1
                 AND
-                    user_id != $2;
+                    user_id != $2
+                GROUP BY
+                    user_id;
                 """
                 return await con.fetch(query, channel, self.bot.user.id)
             else:
                 query = """
                 SELECT 
-                    user_id,score
+                    user_id,SUM(score)
                 FROM
                     scoreboard
                 WHERE
@@ -274,7 +276,9 @@ class ToolCommands(commands.Cog):
                 AND
                     game = $2
                 AND
-                    user_id != $3;
+                    user_id != $3
+                GROUP BY
+                    user_id;
                 """
                 return await con.fetch(query, channel, game, self.bot.user.id)
 
@@ -284,7 +288,7 @@ class ToolCommands(commands.Cog):
     @discord.app_commands.guild_only()
     async def _leaderboard(
         self,
-        interaction: discord.Interaction,
+        interaction: commands.Context,
         channel: discord.TextChannel = None,
         game: str = None,
     ):
@@ -294,8 +298,7 @@ class ToolCommands(commands.Cog):
         """
         if not interaction.guild or not interaction.channel:
             return
-        max_lb_size = self.lb_sizes.get(interaction.channel_id, None) or self.lb_sizes.get(interaction.guild_id, 15)
-
+        max_lb_size = self.lb_sizes.get(interaction.channel.id, None) or self.lb_sizes.get(interaction.guild.id, 15)
         if not channel:
             channel = interaction.channel
 
@@ -304,20 +307,20 @@ class ToolCommands(commands.Cog):
         else:
             title = f"⭐ {game} scores for {channel.name}🌟"
             try:
-                game = Game[game.upper()]
+                Game[game.upper()]
             except KeyError:
-                return await interaction.response.send_message("Game not found. Please try again", ephemeral=True)
+                return await interaction.send("Game not found. Please try again", ephemeral=True)
 
-        data = await self.get_lb_data(channel, game=game)
+        data = await self.get_lb_data(channel.id, game=game)
 
         if not data:
-            return await interaction.response.send_message("No scores where found for you query \U0001f641", ephemeral=True)
+            return await interaction.send("No scores where found for you query \U0001f641", ephemeral=True)
         description = ""
         lb_prefix = ["🥇", "🥈", "🥉"] + [str(i) for i in range(4, max_lb_size + 1)]
         for index, entry in enumerate(data):
             description += f"{lb_prefix[index]}: <@{entry['user_id']}> - **{entry.get('score', entry.get('sum', 'unknown'))}**\n"
         e = Embed(title=title, description=description, color=0xAD3998)
-        await interaction.response.send_message(embed=e)
+        await interaction.send(embed=e)
 
 
 
