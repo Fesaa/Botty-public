@@ -262,7 +262,8 @@ class ToolCommands(commands.Cog):
                 AND
                     user_id != $2
                 GROUP BY
-                    user_id;
+                    user_id
+                ORDER DESC;
                 """
                 return await con.fetch(query, channel, self.bot.user.id)
             else:
@@ -278,7 +279,8 @@ class ToolCommands(commands.Cog):
                 AND
                     user_id != $3
                 GROUP BY
-                    user_id;
+                    user_id
+                ORDER DESC;
                 """
                 return await con.fetch(query, channel, game, self.bot.user.id)
 
