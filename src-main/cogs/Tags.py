@@ -105,7 +105,7 @@ class Tags(commands.Cog):
             con: asyncpg.connection.Connection  # type: ignore
             query = "SELECT tag.tag_name FROM tag WHERE guild_id = $1 ORDER BY similarity(tag.tag_name, $2);"
             tags = await con.fetch(query, guild_id, tag)
-            return [tag["tag"] for tag in tags[:20]]
+            return [tag["tag_name"] for tag in tags[:20]]
 
     async def _get_tag(
         self, guild_id: int, tag: str, search_global: bool = True

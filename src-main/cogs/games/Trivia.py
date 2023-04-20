@@ -43,7 +43,7 @@ class MultipleChoiceButton(discord.ui.Button):
                     INSERT INTO scoreboard
                         (game, user_id, score, channel_id, guild_id)
                     VALUES
-                        (trivia, $1, 1, $2, $3)
+                        ('trivia', $1, 1, $2, $3)
                     ON CONFLICT 
                         (game, user_id, channel_id)
                     DO UPDATE SET
