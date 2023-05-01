@@ -134,7 +134,7 @@ class TriviaCog(commands.Cog):
             if category:
                 query = """
                 SELECT
-                    tq.question,tq.category,ta.answer,ta.correct,tq.difficulty
+                    tq.custom_id,tq.question,tq.category,ta.answer,ta.correct,tq.difficulty
                 FROM
                     trivia_questions as tq
                 JOIN
@@ -152,7 +152,7 @@ class TriviaCog(commands.Cog):
             else:
                 query = """
                 SELECT
-                    tq.question,tq.category,ta.answer,ta.correct,tq.difficulty
+                    tq.custom_id,tq.question,tq.category,ta.answer,ta.correct,tq.difficulty
                 FROM
                     trivia_questions as tq
                 JOIN
@@ -173,6 +173,7 @@ class TriviaCog(commands.Cog):
         q["incorrect_answers"] = []
 
         for row in rows:
+            q["custom_id"] = row["custom_id"]
             q["category"] = row["category"]
             q["question"] = row["question"]
             q["difficulty"] = row["difficulty"]
