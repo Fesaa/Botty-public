@@ -133,7 +133,7 @@ class Tags(commands.Cog):
         data = await self._get_tag(ctx.guild.id, tag)
 
         if data:
-            return await ctx.send(data["description"], reference=ctx.message.reference)
+            return await ctx.send(data["tag_description"], reference=ctx.message.reference)
 
         suggestion_tags = await self._get_tag_suggestions(ctx.guild.id, tag)
         if suggestion_tags:
