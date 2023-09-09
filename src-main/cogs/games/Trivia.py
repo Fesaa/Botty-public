@@ -179,7 +179,7 @@ class TriviaCog(commands.Cog):
             q["category"] = row["category"]
             q["question"] = row["question"]
             q["difficulty"] = row["difficulty"]
-            if row["correct"]:
+            if row.get('correct', None):
                 q["correct_answer"] = row["answer"]
             else:
                 q["incorrect_answers"].append(row["answer"])
