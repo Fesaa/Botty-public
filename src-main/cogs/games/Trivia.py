@@ -16,7 +16,7 @@ class QuestionDict(typing.TypedDict):
     question: str
     correct_answer: str
     incorrect_answers: typing.List[str]
-    custom_id: str
+    id: int
 
 
 class BottyInteraction(discord.Interaction):
@@ -122,7 +122,7 @@ class TriviaCog(commands.Cog):
             async with self.bot.pool.acquire() as con:
                 con: asyncpg.connection.Connection  # type: ignore
                 async with con.transaction():
-                    await con.execute("DELETE FROM trivia_questions WHERE custom_id = $1;", q["custom_id"])
+                    await con.execute("DELETE FROM trivia_questions WHERE id = $1;", q["id"])
             return self.request_question(category)
 
         return q
@@ -134,7 +134,7 @@ class TriviaCog(commands.Cog):
             if category:
                 query = """
                 SELECT
-                    tq.custom_id,tq.question,tq.category,ta.answer,ta.correct,tq.difficulty
+                    tq.id,tq.question,tq.category,ta.answer,ta.correct,tq.difficulty
                 FROM
                     trivia_questions as tq
                 JOIN
@@ -152,7 +152,7 @@ class TriviaCog(commands.Cog):
             else:
                 query = """
                 SELECT
-                    tq.custom_id,tq.question,tq.category,ta.answer,ta.correct,tq.difficulty
+                    tq.id,tq.question,tq.category,ta.answer,ta.correct,tq.difficulty
                 FROM
                     trivia_questions as tq
                 JOIN
@@ -173,7 +173,7 @@ class TriviaCog(commands.Cog):
         q["incorrect_answers"] = []
 
         for row in rows:
-            q["custom_id"] = row["custom_id"]
+            q["id"] = row["id"]
             q["category"] = row["category"]
             q["question"] = row["question"]
             q["difficulty"] = row["difficulty"]
