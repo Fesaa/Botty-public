@@ -118,7 +118,8 @@ class TriviaCog(commands.Cog):
         if not q:
             return None
 
-        if len(q["correct_answer"]) > 80 or any(len(answer) > 80 for answer in q["incorrect_answers"]):
+        # Auto delete questions that can't be used on discord
+        if len(q.get("correct_answer", "f"*81)) > 80 or any(len(answer) > 80 for answer in q["incorrect_answers"]):
             async with self.bot.pool.acquire() as con:
                 con: asyncpg.connection.Connection  # type: ignore
                 async with con.transaction():
