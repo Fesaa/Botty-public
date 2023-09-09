@@ -22,7 +22,7 @@ class BaseGame:
                  current_player: int,
                  players: Optional[list[int]],
                  *,
-                 snowflake: int = None
+                 snowflake: int | None = None
                  ) -> None:
 
         self.game = game

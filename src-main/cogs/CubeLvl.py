@@ -1,4 +1,4 @@
-from math import ceil, sqrt
+from math import sqrt
 
 import aiohttp
 import discord
@@ -70,7 +70,8 @@ class CubeLvl(commands.Cog):
                         e.set_image(url="attachment://image.png")
                         now = discord.utils.utcnow()
                         e.set_footer(text=f'It took {round((now - t).microseconds/1000)} ms to generate this image! {human_timedelta(now, accuracy=None, brief=False, suffix=False)}')
-                        e.set_author(name=ctx.author.name, icon_url=getattr(ctx.author.avatar, "url", self.bot.user.avatar.url))
+                        if ctx.author and ctx.author.avatar:
+                            e.set_author(name=ctx.author.name, icon_url=ctx.author.avatar.url)
                         await ctx.send(embed=e, file=discord.File(fp=buffer, filename="image.png"))
                     else:
                         await ctx.send(f"An error occurred. Please try again. `{await r.read()}`")
@@ -120,8 +121,8 @@ class CubeLvl(commands.Cog):
         ctx: commands.Context,
         game: str,
         wins: int,
-        games_played: int = None,
-        tasks_completed: int = None,
+        games_played: int | None = None,
+        tasks_completed: int | None = None,
     ):
         """
         Game specific experience gain.

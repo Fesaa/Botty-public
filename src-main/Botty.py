@@ -27,11 +27,11 @@ class Botty(commands.Bot):
 
     def __init__(self) -> None:
 
-        self.pool: asyncpg.Pool = ...
+        self.pool: asyncpg.Pool = ... # type: ignore
 
-        self.httpClientSession: aiohttp.ClientSession = ...
+        self.httpClientSession: aiohttp.ClientSession = ... # type: ignore
 
-        config: Config = toml.load("config.toml")
+        config: Config = toml.load("config.toml") # type: ignore
         self.config: Config = config
 
         with open("utils/words.txt", 'rt', encoding='utf-8') as file:
@@ -53,7 +53,7 @@ class Botty(commands.Bot):
         case_insensitive = True
 
         super().__init__(
-            command_prefix=self.get_prefix,
+            command_prefix=self.get_prefix, # type: ignore
             allowed_mentions=allowed_mentions,
             intents=intents,
             case_insensitive=case_insensitive,
@@ -76,7 +76,11 @@ class Botty(commands.Bot):
         self.httpClientSession = aiohttp.ClientSession()
         self.bot_app_info: discord.AppInfo = await self.application_info()
 
-        self.pool: asyncpg.Pool = await asyncpg.create_pool(**self.config["SERVER"]["POSTGRESQL"])
+        pool: asyncpg.Pool | None = await asyncpg.create_pool(**self.config["SERVER"]["POSTGRESQL"])
+        if pool is None:
+            raise Exception("Could not make pool")
+
+        self.pool: asyncpg.Pool = pool
 
         self.prefixes: dict[int, list[str]] = {}
         async with self.pool.acquire() as con:
@@ -97,7 +101,8 @@ class Botty(commands.Bot):
     async def on_ready(self) -> None:
         if not hasattr(self, "uptime"):
             self.uptime = discord.utils.utcnow()
-            print(f"Ready: {self.user} (ID: {self.user.id})")
+            if self.user is not None:
+                print(f"Ready: {self.user} (ID: {self.user.id})")
 
     async def get_prefix(self, msg: discord.Message):
         prefixes: list[str]
@@ -107,7 +112,7 @@ class Botty(commands.Bot):
         else:
             prefixes = commands.when_mentioned_or(*self.prefixes.get(msg.guild.id, [self.config["DISCORD"]["DEFAULT_PREFIX"]]))(self, msg)
 
-        if msg.author.id in self.owner_ids:
+        if self.owner_ids is not None and msg.author.id in self.owner_ids:
             prefixes.append("?")
 
         return prefixes

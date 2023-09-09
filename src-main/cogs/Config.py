@@ -93,6 +93,8 @@ class ConfigCog(commands.Cog):
     @_manage_prefix_group.command(name="add")
     async def _add_prefix(self, ctx: commands.Context['Botty'], prefix: str):
         """Add an extra prefix to listen for in your server"""
+        if not ctx.guild:
+            return
         if not prefix:
             return await ctx.send("Please provide a new prefix.", ephemeral=True)
         if self.bot.prefixes.get(ctx.guild.id, []).count(prefix) == 0:
@@ -105,6 +107,8 @@ class ConfigCog(commands.Cog):
         return await ctx.send("You were already using this prefix. Nothing changed.", ephemeral=True)
 
     async def current_prefixes(self, interaction: discord.Interaction, current: str) -> list[discord.app_commands.Choice[str]]:
+        if interaction.guild_id is None:
+            return []
         return [
             discord.app_commands.Choice(name=prefix, value=prefix)
             for prefix in
@@ -115,9 +119,10 @@ class ConfigCog(commands.Cog):
     @discord.app_commands.autocomplete(prefix=current_prefixes)
     async def _remove_prefix(self, ctx: commands.Context['Botty'], prefix: str):
         """Remove a prefix for your server"""
+        if not ctx.guild:
+            return
         if prefix not in self.bot.prefixes.get(ctx.guild.id, []):
             return await ctx.send("Cannot remove non existing prefix.", ephemeral=True)
-
         self.bot.prefixes.get(ctx.guild.id, []).remove(prefix)
         await self.exec_sql("DELETE FROM prefixes WHERE guild_id = $1 AND prefix = $2;", ctx.guild.id, prefix)
         return await ctx.send(f"Removed `{prefix}` as a possible prefix.", ephemeral=True)
@@ -191,9 +196,6 @@ class ConfigCog(commands.Cog):
         else:
             e = GameConfigUpdateEvent(setting, ctx, value)
         self.bot.dispatch('config_update', e)
-
-
-
 
 
 async def setup(bot: 'Botty'):
