@@ -125,7 +125,7 @@ class TriviaCog(commands.Cog):
                 async with con.transaction():
                     await con.execute("DELETE FROM trivia_answers WHERE id = $1;", q["id"])
                     await con.execute("DELETE FROM trivia_questions WHERE id = $1;", q["id"])
-            return self.request_question(category)
+            return await self.request_question(category)
 
         return q
 
