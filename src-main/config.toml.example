@@ -16,6 +16,10 @@ DEFAULT_HL_MAX_NUMBER =
 
 [SERVER]
 
+[SERVER.IMAGE]
+host = 
+port = 
+
 [SERVER.POSTGRESQL]
 host = 
 database = 

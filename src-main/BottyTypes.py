@@ -23,6 +23,9 @@ class _ConfigDiscord(TypedDict):
     DEFAULTS: _ConfigDiscordDefaults
     WEBHOOK: _DiscordWebhook
 
+class _ConfigServerImage(TypedDict):
+    host: str
+    port: str
 
 class _ConfigServerPostgreSQL(TypedDict):
     host: str
@@ -33,6 +36,7 @@ class _ConfigServerPostgreSQL(TypedDict):
 
 class _ConfigServer(TypedDict):
     POSTGRESQL: _ConfigServerPostgreSQL
+    IMAGE: _ConfigServerImage
 
 
 class _Botty(TypedDict):

@@ -6,10 +6,12 @@ import asyncpg
 import discord
 import enchant
 import toml  # type: ignore
+import logging
 from discord.ext import commands
 
 from BottyTypes import Config
 
+_log = logging.getLogger("botty")
 
 class Defaults:
 
@@ -95,14 +97,15 @@ class Botty(commands.Bot):
         for ext in chain(iter_modules(["cogs"], prefix='cogs.'), iter_modules(["cogs/games"], prefix='cogs.games.')):
             try:
                 await self.load_extension(ext.name)
+                _log.info("Loaded extension: %s", ext.name)
             except Exception as error:
-                print("Failed to load extension: %s\n\n%s", ext.name, error)
+                _log.error("Failed to load extension: %s\n\n%s", ext.name, error)
 
     async def on_ready(self) -> None:
         if not hasattr(self, "uptime"):
             self.uptime = discord.utils.utcnow()
             if self.user is not None:
-                print(f"Ready: {self.user} (ID: {self.user.id})")
+                _log.info(f"Ready: {self.user} (ID: {self.user.id})")
 
     async def get_prefix(self, msg: discord.Message):
         prefixes: list[str]

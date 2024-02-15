@@ -1,3 +1,4 @@
+import logging
 from math import sqrt
 
 import aiohttp
@@ -12,6 +13,8 @@ from PIL import Image
 from Botty import Botty
 from utils import clc
 from utils.time import human_timedelta
+
+_log = logging.getLogger("botty")
 
 
 class CubeLvl(commands.Cog):
@@ -50,16 +53,17 @@ class CubeLvl(commands.Cog):
         Information on levels, and their differences.
         """
 
+        host: str = f"{self.bot.config.get("SERVER").get("IMAGE").get("host")}:{self.bot.config.get("SERVER").get("IMAGE").get("port")}"
         if level1 == 1 and current_xp == 0:
-            url = f"http://127.0.0.1:8080/image-renderer/cube-level/single?level={level2}"
+            url = f"http://{host}/image-renderer/cube-level/single?level={level2}"
         else:
-            url = f"http://127.0.0.1:8080/image-renderer/cube-level/multi?level1={level1}&level2={level2}&current_xp={current_xp}"
+            url = f"http://{host}/image-renderer/cube-level/multi?level1={level1}&level2={level2}&current_xp={current_xp}"
 
 
         async with ctx.typing():
             t = discord.utils.utcnow()
             async with aiohttp.ClientSession() as cs:
-                async with cs.get(url) as r:
+                async with cs.get(url, timeout=30) as r:
                     if r.status == 200:
                         with Image.open(BytesIO(await r.read())) as img:
                             buffer = BytesIO()

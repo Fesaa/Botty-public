@@ -1,4 +1,5 @@
 import logging.handlers
+import logging 
 import os
 import pathlib
 import sys
@@ -25,15 +26,23 @@ formatter = logging.Formatter(
     "[{asctime}] [{levelname:<8}] {name}: {message}", dt_fmt, style="{"
 )
 handler.setFormatter(formatter)
-logger.addHandler(handler)
 
+stream = logging.StreamHandler()
+stream.setFormatter(formatter)
+
+logger.addHandler(handler)
+logger.addHandler(stream)
+
+bottyLogger = logging.getLogger("botty")
+bottyLogger.setLevel(logging.INFO)
+bottyLogger.addHandler(stream)
 
 def main():
     bot = Botty()
     try:
         bot.run(log_handler=None)
     except discord.LoginFailure:
-        print("Invalid token", file=sys.stderr)
+        logging.error("Invalid token", file=sys.stderr)
 
 
 if __name__ == "__main__":

@@ -7,6 +7,7 @@ edition = "2021"
 
 [dependencies]
 actix-web = "4"
+env_logger = "0.11.2"
 image = "0.24.5"
 image-renderer = {path = "../image-renderer"}
 serde = { version = "1.0", features = ["derive"] }
