@@ -216,6 +216,9 @@ class WordSnake(GameCog):
         if msg.channel.id not in self.channels:
             return
 
+        if not msg.content:
+            return
+
         if msg.content[0] in await self.bot.get_prefix(msg):
             return
 
