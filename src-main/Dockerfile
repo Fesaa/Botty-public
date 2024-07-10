@@ -13,3 +13,4 @@ COPY . .
 ENV PYENCHANT_LIBRARY_PATH=/usr/lib/enchant-2/enchant_hunspell.so
 
 CMD ["python", "main.py"]
+

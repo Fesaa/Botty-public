@@ -13,3 +13,4 @@ WORKDIR /app
 COPY --from=builder /app/target/release/image-api /app
 
 CMD ["./image-api"]
+
