@@ -1,4 +1,5 @@
 import string
+import logging
 from random import choice
 
 import asyncpg
@@ -13,6 +14,8 @@ from framework import (
     GameConfigUpdateEvent,
     GameSetting
 )
+
+_log = logging.getLogger("botty")
 
 
 class WordSnakeGame(BaseGame):
@@ -85,7 +88,7 @@ class WordSnake(GameCog):
             self.max_mistakes_config[e.ctx.guild.id] = e.new_value
             return await e.ctx.send(f'Changed {e.setting.pretty()} to {e.new_value}.', ephemeral=True)
 
-    @tasks.loop(seconds=10)
+    @tasks.loop(seconds=5)
     async def update_database(self):
         if len(self.games.values()) != 0:
             query = f"""
@@ -103,7 +106,10 @@ class WordSnake(GameCog):
                 last_word = EXCLUDED.last_word,
                 mistakes = EXCLUDED.mistakes;
             """
-            await self.exec_sql(query)
+            try:
+                await self.exec_sql(query)
+            except Exception as e:
+                _log.error(f"An error occured while updating games: %s", e)
 
         if len(self.to_add_words) != 0:
             query = f"""
@@ -113,7 +119,10 @@ class WordSnake(GameCog):
             VALUES
                 {','.join(f"('{word.channel_id}', $1, '{word.word}')" for word in self.to_add_words)};
             """
-            await self.exec_sql(query, self.game.value)
+            try:
+                await self.exec_sql(query, self.game.value)
+            except Exception as e:
+                _log.error(f"An error occured while updating games: %s", e)
             self.to_add_words = []
 
     def in_wait_list(self, word: str, channel_id: int):
@@ -228,15 +237,19 @@ class WordSnake(GameCog):
             return
         
         if msg.author.id == game.current_player:
+            _log.debug("Remove message of %s, because is current player", msg.author.name)
             return await msg.delete()
 
         if self.in_wait_list(msg.content, msg.channel.id):
+            _log.debug("Removing message of %s, because it is already used", msg.author.name)
             return await msg.delete()
 
         if await game.check_used(msg.content):
+            _log.debug("Removing message of %s, because it is already used", msg.author.name)
             return await msg.delete()
 
         if not self.bot.enchant_dictionary.check(msg.content):
+            _log.debug("Removing message of %s, because it (%s) is not a word", msg.author.name, msg.content)
             return await msg.delete()
 
         if msg.content[0].lower() != game.last_word[-1].lower():
