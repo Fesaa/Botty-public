@@ -96,7 +96,7 @@ class WordSnake(GameCog):
 
 
     def has_changes(self) -> bool:
-        if len(self.prev_games) == 0:
+        if len(self.prev_games) != len(self.games):
             self.update_prev_games()
             return True
 
