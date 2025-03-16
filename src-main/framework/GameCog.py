@@ -85,7 +85,8 @@ class GameCog(commands.Cog):
                     added_channels.append(channel)
                     self.channels.append(channel)
                     counter += 1
-            await self.exec_sql(f"INSERT INTO channel_ids (guild_id, channel_type, channel_id) VALUES {','.join(f'($1, $2, {channel})' for channel in added_channels)};", ctx.guild.id, e.game.value.lower())
+            if counter > 0:
+                await self.exec_sql(f"INSERT INTO channel_ids (guild_id, channel_type, channel_id) VALUES {','.join(f'($1, $2, {channel})' for channel in added_channels)};", ctx.guild.id, e.game.value.lower())
             await ctx.send(f'Added {counter} channels to be used for {e.game.value}!', ephemeral=True)
 
         elif e.update_type == Update.REMOVE:
