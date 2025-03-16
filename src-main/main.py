@@ -34,8 +34,18 @@ logger.addHandler(handler)
 logger.addHandler(stream)
 
 bottyLogger = logging.getLogger("botty")
-bottyLogger.setLevel(logging.INFO)
 bottyLogger.addHandler(stream)
+
+log_level_str = os.environ.get("LOG_LEVEL")
+if log_level_str:
+    try:
+        log_level = getattr(logging, log_level_str.upper())
+        bottyLogger.setLevel(log_level)
+    except AttributeError:
+        print(f"Warning: Invalid log level '{log_level_str}'. Defaulting to INFO.")
+        bottyLogger.setLevel(logging.INFO)
+else:
+    bottyLogger.setLevel(logging.INFO)
 
 def main():
     bot = Botty()

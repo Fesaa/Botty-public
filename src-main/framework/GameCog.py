@@ -1,5 +1,6 @@
 import asyncpg
 import discord
+import logging
 from typing import TYPE_CHECKING
 
 from discord.ext import commands
@@ -10,6 +11,8 @@ if TYPE_CHECKING:
     from framework.BaseGame import BaseGame
     from framework.GameEvents import GameChannelUpdateEvent, GameDebugEvent, GameUpdateEvent
     from framework.enums import Game
+
+_log = logging.getLogger("botty")
 
 class GameCog(commands.Cog):
 
@@ -23,6 +26,7 @@ class GameCog(commands.Cog):
         self.limit_to_channel = limit_to_channel
 
     async def exec_sql(self, query: str, *val):
+        _log.debug("Executing SQL Query %s", query)
         async with self.bot.pool.acquire() as con:
             con: asyncpg.Connection
             await con.execute(query, *val)
