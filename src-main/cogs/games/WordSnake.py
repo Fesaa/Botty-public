@@ -89,13 +89,13 @@ class WordSnake(GameCog):
             self.max_mistakes_config[e.ctx.guild.id] = e.new_value
             return await e.ctx.send(f'Changed {e.setting.pretty()} to {e.new_value}.', ephemeral=True)
 
-    def update_prev_games():
+    def update_prev_games(self):
         self.prev_games = {}
         for game_id, game in self.games.items():
             self.prev_games[game_id] = game.sql_values()
 
 
-    def has_changes() -> bool:
+    def has_changes(self) -> bool:
         if len(self.prev_games) == 0:
             self.update_prev_games()
             return True
