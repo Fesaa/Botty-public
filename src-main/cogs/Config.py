@@ -165,6 +165,7 @@ class ConfigCog(commands.Cog):
         except KeyError:
             return await ctx.send("Invalid game. Please try again.", ephemeral=True)
 
+        return await ctx.send("Not implemented sorry!", ephemeral=True)
         #TODO implement !!! See ConfigHandler for paginator !!!
 
 
