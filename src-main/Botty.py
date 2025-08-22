@@ -1,6 +1,7 @@
 from itertools import chain
 from pkgutil import iter_modules
 
+import os
 import aiohttp
 import asyncpg
 import discord
@@ -78,7 +79,12 @@ class Botty(commands.Bot):
         self.httpClientSession = aiohttp.ClientSession()
         self.bot_app_info: discord.AppInfo = await self.application_info()
 
-        pool: asyncpg.Pool | None = await asyncpg.create_pool(**self.config["SERVER"]["POSTGRESQL"])
+        db_url = os.getenv("DATABASE_URL")
+        if not db_url:
+            raise RuntimeError("DATABASE_URL environment variable not set")
+
+        _log.info("Connection to DB")
+        pool: asyncpg.Pool = await asyncpg.create_pool(dsn=db_url)
         if pool is None:
             raise Exception("Could not make pool")
 
@@ -124,3 +130,4 @@ class Botty(commands.Bot):
         async with self.pool.acquire() as con:
             con: asyncpg.Connection
             await con.execute(query, *val)
+
